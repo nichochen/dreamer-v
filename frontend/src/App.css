@@ -1,0 +1,304 @@
+/* Keep general App styling if needed, or remove if Bootstrap covers everything */
+.App {
+  /* text-align: center; Bootstrap handles text alignment within components */
+}
+
+/* The App-header class was replaced by Bootstrap's bg-dark, text-white, p-4, mb-4.
+   If you had specific styles here not covered by Bootstrap, you could keep them.
+   Otherwise, this can be removed. */
+/*
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+}
+*/
+
+/* The App-main and column classes were replaced by Bootstrap's container and row/col system.
+   These can be removed. */
+/*
+.App-main {
+  display: flex;
+  flex-direction: row;
+  padding: 20px;
+  gap: 20px;
+}
+
+.column {
+  border: 1px solid #ddd;
+  padding: 15px;
+  min-height: 400px;
+}
+
+.input-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.input-column h2, .video-column h2, .thumbnails-column h2 {
+  margin-top: 0;
+}
+
+.input-column textarea {
+  width: 95%;
+  height: 100px;
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.video-column {
+  flex: 2;
+}
+
+.thumbnails-column {
+  flex: 1;
+}
+
+.thumbnails-column ul li {
+  cursor: pointer;
+}
+
+.thumbnails-column ul li:hover {
+  background-color: #f0f0f0;
+}
+
+@media (max-width: 768px) {
+  .App-main {
+    flex-direction: column;
+  }
+
+  .column {
+    min-height: auto;
+    margin-bottom: 20px;
+  }
+
+  .input-column, .video-column, .thumbnails-column {
+    flex: none;
+    width: 100%;
+  }
+}
+*/
+
+/* Add any additional custom styles below if Bootstrap doesn't cover them.
+   For example, if you need specific overrides or very custom component styling. */
+
+body {
+  font-family: 'Inter', sans-serif; /* Example: Using a custom font with Bootstrap */
+  margin: 0; /* Ensure no default body margin interferes with 100vh layout */
+  zoom: 0.8; /* Zoom out the entire app by 20% */
+}
+
+.App {
+  /* d-flex flex-column is applied in App.js for overall structure */
+  /* min-height: 100vh is applied inline in App.js */
+}
+
+.app-body {
+  /* This is the container for sidebar and main content */
+  /* d-flex flex-grow-1 is applied in App.js */
+  /* overflow: hidden is applied inline in App.js to manage child scrolling */
+}
+
+.sidebar {
+  width: 350px; /* Fixed width for the sidebar */
+  overflow-y: auto; /* Allow sidebar to scroll independently if content exceeds its height */
+  flex-shrink: 0; /* Prevent sidebar from shrinking when main content grows */
+  /* Bootstrap classes like bg-light, p-3, border-end are applied in App.js */
+}
+
+.main-content-area {
+  overflow-y: auto; /* Allow main content area to scroll independently */
+  /* Bootstrap classes like flex-grow-1, p-4 are applied in App.js */
+}
+
+.right-sidebar {
+  width: 180px; /* Further reduced width for the right sidebar */
+  min-height: 400px; /* Set a minimum height for the history box */
+  overflow-y: auto; /* Allow sidebar to scroll independently */
+  flex-shrink: 0; /* Prevent sidebar from shrinking */
+  /* Bootstrap classes like bg-light, p-3, border-start are applied in App.js */
+  -webkit-mask-image: linear-gradient(transparent, black 10%, black 90%, transparent);
+  mask-image: linear-gradient(transparent, black 10%, black 90%, transparent);
+}
+
+
+/* Ensure the main content area pushes footer down or has enough padding */
+/*
+.App main.container {
+  min-height: calc(100vh - 120px - 70px); /* Adjust 120px for header and 70px for footer, approximately */
+/* } */
+
+/* Custom styling for thumbnail images if needed */
+.list-group-item img {
+  width: 80px; /* Or your desired size */
+  height: 80px; /* Same as width for a square aspect ratio */
+  object-fit: cover; /* Ensures the image covers the square area, cropping if necessary */
+  border-radius: 10px; /* Adjust for desired roundness */
+  /* margin-right: 10px; /* Removed as parent li is d-flex flex-column align-items-center */
+}
+
+.thumbnail-container {
+  width: 80px; /* Match image size */
+  height: 80px; /* Match image size */
+  border-radius: 10px; /* Match image border-radius */
+  overflow: hidden; /* Ensure play icon doesn't spill out if it's larger */
+  position: relative; /* Needed for absolute positioning of border element or pseudo-elements */
+  box-sizing: border-box; /* Ensure padding and border are included in the element's total width and height */
+  transition: transform 0.2s ease-in-out; /* Add transition for smooth scaling */
+}
+
+.thumbnail-container:hover {
+  transform: scale(1.1); /* Enlarge by 10% on hover */
+}
+
+.thumbnail-container .img-thumbnail {
+  width: 100%; /* Fill the container */
+  height: 100%; /* Fill the container */
+  object-fit: cover; /* Ensure image covers the area, cropping if necessary */
+  padding: 0; /* Override Bootstrap img-thumbnail padding */
+  border: none; /* Override Bootstrap img-thumbnail border */
+  border-radius: 0; /* Let the parent .thumbnail-container handle border-radius via overflow:hidden */
+  margin-bottom: 0 !important; /* Keep this if it was needed */
+}
+
+.play-icon-overlay {
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black background */
+  opacity: 0; /* Hidden by default */
+  transition: opacity 0.3s ease-in-out; /* Smooth transition for hover effect */
+  border-radius: 10px; /* Match image border-radius */
+}
+
+.list-group-item-action:hover .play-icon-overlay {
+  opacity: 1; /* Show on hover of the list item */
+}
+
+.play-icon-overlay i {
+  /* Style for the play icon itself, if needed, e.g., shadow */
+  text-shadow: 0px 0px 8px rgba(0, 0, 0, 0.7);
+}
+
+/* Remove default list-group-item borders and manage them with custom classes if needed */
+.list-group-flush > .list-group-item-action {
+  border-width: 0; /* Removes top/bottom borders for flush items */
+}
+.list-group-flush > .list-group-item-action:last-child {
+  border-bottom-width: 0; /* Ensure last item also has no bottom border */
+}
+.list-group-flush > .list-group-item-action:first-child {
+  border-top-width: 0; /* Ensure first item also has no top border */
+}
+
+
+/* Custom classes for theming borderless items if needed, though Bootstrap's active/dark classes might suffice */
+.list-group-item-light-no-border {
+  background-color: var(--bs-list-group-bg); /* Use Bootstrap's variable for light theme background */
+  color: var(--bs-list-group-color);
+}
+/* .list-group-item-light-no-border.active {
+  background-color: var(--bs-list-group-active-bg);
+  color: var(--bs-list-group-active-color);
+} */
+
+.list-group-item-dark-no-border {
+  background-color: var(--bs-list-group-bg); /* Use Bootstrap's variable for dark theme background */
+  color: var(--bs-list-group-color);
+}
+/* .list-group-item-dark-no-border.active {
+  background-color: var(--bs-list-group-active-bg);
+  color: var(--bs-list-group-active-color);
+  /* border-color: var(--bs-list-group-active-border-color); /* No border needed */
+/* } */
+
+/* Ensure the .list-group.list-group-flush itself doesn't have a border if you want it completely borderless */
+.list-group.list-group-flush {
+  border: 0; /* Remove border from the ul itself */
+}
+
+.selected-thumbnail-custom-border {
+  border: 4px solid rgb(208, 255, 250) !important; /* Thick purple border */
+  border-radius: 10px; /* Ensure border radius matches the image/container */
+  box-sizing: border-box; /* Important to include border in the element's dimensions */
+}
+
+/* Ensure the list item itself doesn't get a background when its child thumbnail is selected */
+.list-group-item-action.has-selected-thumbnail {
+  background-color: transparent !important; /* Override Bootstrap's active background */
+  color: inherit !important; /* Inherit color to avoid Bootstrap's active color */
+}
+
+.flashlight-loader {
+  width: 100%;
+  height: 100%; /* Ensure it fills the container */
+  position: relative;
+  overflow: hidden;
+  background-color: #222; /* Dark background for the loader area */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column; /* To stack animation and text */
+}
+
+.flashlight-loader::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%; /* Start off-screen to the left */
+  width: 50%; /* Width of the light beam */
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3), /* Lighter part of the beam */
+    rgba(255, 255, 255, 0.5), /* Brightest part of the beam */
+    rgba(255, 255, 255, 0.3), /* Lighter part of the beam */
+    transparent
+  );
+  animation: flashlight-sweep 2.5s infinite linear;
+  transform: skewX(-25deg); /* Skew the beam for a more dynamic look */
+}
+
+@keyframes flashlight-sweep {
+  0% {
+    left: -100%; /* Start off-screen to the left */
+  }
+  50% {
+    left: 150%; /* Sweep across to the right and off-screen */
+  }
+  100% {
+    left: -100%; /* Reset to start for the next iteration */
+  }
+}
+
+.flashlight-loader p {
+  position: relative; /* Ensure text is above the animation pseudo-element */
+  z-index: 1;
+  color: #fff; /* White text for contrast */
+  font-size: 1.2rem;
+}
+
+/* Styles for the resizable video area and its handle */
+.video-display-card {
+  /* position: relative; /* Not strictly needed if handle is in normal flow */
+  /* overflow: hidden; /* To contain the handle if it were absolutely positioned and could overflow */
+}
+
+.video-resize-handle {
+  width: 100%;
+  height: 15px; /* A bit taller for easier grabbing */
+  background-color: var(--bs-secondary-bg); /* Use Bootstrap variable for theme awareness */
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid var(--bs-border-color); /* Separator line */
+  user-select: none; /* Prevent text selection on the handle */
+}
+
+.video-resize-handle i {
+  color: var(--bs-secondary-color); /* Theme-aware icon color */
+  font-size: 1rem; /* Adjust icon size if needed */
+}
