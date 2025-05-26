@@ -28,6 +28,8 @@ function App() {
   const [imagePreview, setImagePreview] = useState('');
   const [selectedLastImage, setSelectedLastImage] = useState(null); // New state for last frame image
   const [lastImagePreview, setLastImagePreview] = useState(''); // New state for last frame image preview
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [modalImageUrl, setModalImageUrl] = useState('');
   const [model, setModel] = useState('veo-2.0-generate-001'); // Default model
   const [ratio, setRatio] = useState('16:9'); // Default ratio
   const [cameraControl, setCameraControl] = useState('FIXED'); // Default camera control
@@ -64,6 +66,11 @@ function App() {
 
   const [activeImageTab, setActiveImageTab] = useState('first'); // 'first' or 'last'
 
+  const handleImagePreviewClick = (imageUrl) => {
+    setModalImageUrl(imageUrl);
+    setShowImageModal(true);
+  };
+
   const handlePasteFromClipboard = async (target) => {
     try {
       const permission = await navigator.permissions.query({ name: 'clipboard-read' });
@@ -98,7 +105,7 @@ function App() {
       setErrorMessage('No image found on clipboard. Please ensure you have copied an image.');
     } catch (err) {
       console.error('Failed to read image from clipboard:', err);
-      setErrorMessage(`Failed to paste image: ${err.message}. Try Ctrl+V/Cmd+V directly, or use the upload button.`);
+      // setErrorMessage(`Failed to paste image: ${err.message}. Try Ctrl+V/Cmd+V directly, or use the upload button.`);
     }
   };
 
@@ -436,49 +443,66 @@ function App() {
         throw new Error(data.error || `Failed to fetch task status: ${response.statusText}`);
       }
 
-      const newStatusFromPoll = data.status;
-      const currentVideoUri = data.local_video_path ? `${BACKEND_URL}${data.local_video_path}` : data.video_gcs_uri || '';
+      const newStatusFromBackend = data.status;
+      const currentVideoUri = data.local_video_path ? `${BACKEND_URL}${data.local_video_path}` : '';
+      let finalTaskStatusToSet = taskStatus; // Start with current status, will be updated
 
-      // Always update history if status changed or it's a significant state
-      if (newStatusFromPoll !== taskStatus || ['processing', 'completed', 'failed'].includes(newStatusFromPoll)) {
+      // Always update history if backend status changed or it's a significant state
+      if (newStatusFromBackend !== taskStatus || ['processing', 'completed', 'failed'].includes(newStatusFromBackend)) {
         fetchHistoryTasks();
       }
-      
-      setVideoGcsUri(currentVideoUri); // Set URI based on current poll data
-      setTaskStatus(newStatusFromPoll); // Set status after URI
 
-      if (newStatusFromPoll === 'completed') {
+      if (newStatusFromBackend === 'completed') {
+        
         if (currentVideoUri) {
-          setErrorMessage(''); // Clear any "waiting" error
+          // Backend says completed AND URI is available
+          setVideoGcsUri(currentVideoUri); // Set URI first
+          finalTaskStatusToSet = 'completed'; // Then set status
+          setErrorMessage('');
           if (pollingIntervalId) clearInterval(pollingIntervalId);
           setPollingIntervalId(null);
           setCompletedUriPollRetries(0);
         } else {
-          // Completed, but no URI yet.
+          // Backend says completed, but NO URI yet. Retry for URI.
+          // DO NOT set status to 'completed' yet.
+          setVideoGcsUri(''); // Ensure URI is cleared
           if (completedUriPollRetries < 3) {
             setCompletedUriPollRetries(prev => prev + 1);
-            setErrorMessage(`Task completed. Waiting for video URI (attempt ${completedUriPollRetries + 1}/3)...`);
-            // Polling interval continues due to useEffect dependency on completedUriPollRetries
+            setErrorMessage(`Task reported complete by backend. Waiting for video URI (attempt ${completedUriPollRetries + 1}/3)...`);
+            // Keep taskStatus as 'processing' or current non-final state.
+            // If it was 'pending', move to 'processing'.
+            finalTaskStatusToSet = (taskStatus === 'pending' || taskStatus === 'Initializing...') ? 'processing' : taskStatus;
+            if (finalTaskStatusToSet === 'completed') finalTaskStatusToSet = 'processing'; // Ensure it's not stuck on 'completed'
+            // Polling continues.
           } else {
-            setErrorMessage("Task completed but no video URI or local path returned after retries.");
+            // Retries exhausted for URI
+            finalTaskStatusToSet = 'failed'; 
+            setErrorMessage("Task completed by backend but no video URI or local path returned after retries.");
             if (pollingIntervalId) clearInterval(pollingIntervalId);
             setPollingIntervalId(null);
-            setCompletedUriPollRetries(0); // Reset for the future
+            setCompletedUriPollRetries(0);
           }
         }
-      } else if (newStatusFromPoll === 'failed' || newStatusFromPoll === 'error') {
-        setErrorMessage(data.error_message || `Task ${newStatusFromPoll}.`);
+      } else if (newStatusFromBackend === 'failed' || newStatusFromBackend === 'error') {
+        setVideoGcsUri(currentVideoUri); // Update URI if any
+        finalTaskStatusToSet = newStatusFromBackend;
+        setErrorMessage(data.error_message || `Task ${newStatusFromBackend}.`);
         if (pollingIntervalId) clearInterval(pollingIntervalId);
         setPollingIntervalId(null);
         setCompletedUriPollRetries(0);
-      } else { // Pending or processing
-        setErrorMessage(data.error_message || ''); // Or a "processing..." message
-        setCompletedUriPollRetries(0); // Reset retries if task reverts from completed no-URI state
+      } else { // 'pending' or 'processing' from backend
+        setVideoGcsUri(currentVideoUri); // Update URI if any
+        finalTaskStatusToSet = newStatusFromBackend;
+        setErrorMessage(data.error_message || ''); 
+        setCompletedUriPollRetries(0); // Reset retries as task is not 'completed_missing_uri'
       }
       
+      // Set the determined status
+      setTaskStatus(finalTaskStatusToSet);
+
       // Update form fields if task is now in a final state (completed or failed)
-      // This should happen regardless of URI presence for completed tasks
-      if (newStatusFromPoll === 'completed' || newStatusFromPoll === 'failed') {
+      // This uses finalTaskStatusToSet to ensure consistency with what was just set in UI state.
+      if (finalTaskStatusToSet === 'completed' || finalTaskStatusToSet === 'failed') {
         setPrompt(data.prompt);
         setModel(data.model || 'veo-2.0-generate-001');
         setRatio(data.aspect_ratio || '16:9');
@@ -489,7 +513,14 @@ function App() {
 
     } catch (error) {
       console.error('Error polling task status:', error);
-      setErrorMessage(prev => prev || error.message || 'Failed to poll task status.');
+      // Preserve existing error message if one is already shown, unless it's a new distinct error.
+      setErrorMessage(prev => {
+        const newErrorMsg = error.message || 'Failed to poll task status.';
+        // Avoid overwriting a more specific error with a generic poll failure message
+        // if prev exists and is not the generic one.
+        if (prev && prev !== 'Failed to poll task status.') return prev;
+        return newErrorMsg;
+      });
       if (pollingIntervalId) clearInterval(pollingIntervalId);
       setPollingIntervalId(null);
       setCompletedUriPollRetries(0);
@@ -604,9 +635,8 @@ function App() {
     setDuration(task.duration_seconds || 5); // Set duration from history or default, changed to 5
     setGcsOutputBucket(task.gcs_output_bucket || ''); // Set GCS bucket from history or empty
     setTaskId(task.task_id);
+    setVideoGcsUri(task.local_video_path ? `${BACKEND_URL}${task.local_video_path}` : '');
     setTaskStatus(task.status);
-    // Prefer local_video_path if available when selecting from history
-    setVideoGcsUri(task.local_video_path ? `${BACKEND_URL}${task.local_video_path}` : task.video_gcs_uri || '');
     setErrorMessage(task.error_message || '');
     setIsLoading(false); // Ensure loading is false when selecting from history
 
@@ -904,7 +934,7 @@ function App() {
                     >
                       {imagePreview ? (
                         <div style={{ position: 'relative', display: 'inline-block' }}>
-                          <img src={imagePreview} alt="First Frame Preview" className="img-thumbnail" style={{ maxHeight: '150px', maxWidth: '100%' }} />
+                          <img src={imagePreview} alt="First Frame Preview" className="img-thumbnail" style={{ maxHeight: '150px', maxWidth: '100%', cursor: 'pointer' }} onClick={() => handleImagePreviewClick(imagePreview)} />
                           <button
                             type="button"
                             className="btn btn-secondary position-absolute top-0 end-0 m-1 rounded-circle"
@@ -962,7 +992,7 @@ function App() {
                     >
                       {lastImagePreview ? (
                         <div style={{ position: 'relative', display: 'inline-block' }}>
-                          <img src={lastImagePreview} alt="Last Frame Preview" className="img-thumbnail" style={{ maxHeight: '150px', maxWidth: '100%' }} />
+                          <img src={lastImagePreview} alt="Last Frame Preview" className="img-thumbnail" style={{ maxHeight: '150px', maxWidth: '100%', cursor: 'pointer' }} onClick={() => handleImagePreviewClick(lastImagePreview)} />
                           <button
                             type="button"
                             className="btn btn-secondary position-absolute top-0 end-0 m-1 rounded-circle"
@@ -1142,7 +1172,7 @@ function App() {
                       <p >Something is wrong! Please check your prompt and settings.</p>
                     </div>
                   ) : videoGcsUri && taskStatus === 'completed' ? (
-                    <video ref={videoRef} controls autoPlay loop src={videoGcsUri} className="w-100" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', backgroundColor: theme === 'dark' ? '#343a40' : '#000000' }}>
+                    <video key={videoGcsUri} ref={videoRef} controls autoPlay loop src={videoGcsUri} className="w-100" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', backgroundColor: theme === 'dark' ? '#343a40' : '#000000' }}>
                       Your browser does not support the video tag.
                     </video>
                   ) : !videoGcsUri && taskStatus === 'completed' && errorMessage ? (
@@ -1315,6 +1345,56 @@ function App() {
           © 2025 Dreamer-V
             </div>
           </footer>
+
+          {/* Image Preview Modal */}
+          {showImageModal && (
+            <div
+              className="modal fade show"
+              tabIndex="-1"
+              style={{
+                display: 'flex', // Use flex to center
+                alignItems: 'center', // Vertical center
+                justifyContent: 'center', // Horizontal center
+                position: 'fixed', // Ensure it covers the whole screen
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                zIndex: 1050 // Ensure it's above other content
+              }}
+              onClick={(e) => {
+                // Close modal only if backdrop is clicked, not content
+                if (e.target === e.currentTarget) {
+                  setShowImageModal(false);
+                }
+              }}
+            >
+              <div className="modal-dialog modal-xl" style={{ margin: 0, display: 'flex', alignItems: 'center', minHeight: 'calc(100% - (1.75rem * 2))' }}> {/* Changed to modal-xl, Ensure dialog takes height for centering content */}
+                <div className="modal-content" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column', width: '100%' }}> {/* Increased maxHeight to 90vh, enable flex for body growth */}
+                  <div className="modal-body text-center" style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}> {/* Body grows and centers image */}
+                    {/* Ensure image itself doesn't prevent modal click-outside-to-close */}
+                    <img
+                      src={modalImageUrl}
+                      alt="Preview"
+                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
+                      onClick={(e) => e.stopPropagation()} // Prevent click on image from closing modal
+                    />
+                    <button
+                      type="button"
+                      className="btn-close btn-close-white position-absolute top-0 end-0 m-3"
+                      aria-label="Close"
+                      style={{filter: 'invert(1) grayscale(100%) brightness(200%)', zIndex: 1051}} // Ensure close button is clickable
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent click on button from closing modal via backdrop click
+                        setShowImageModal(false);
+                      }}
+                    ></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>

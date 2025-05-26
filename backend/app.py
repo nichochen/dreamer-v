@@ -282,7 +282,6 @@ def _run_video_generation(task_id):
                     gcs_raw_uri = response_data["generatedSamples"][0].get("video", {}).get("uri")
 
                 if gcs_raw_uri:
-                    task.status = "completed"
                     # Ensure gcs_raw_uri is stored with gs:// prefix if it's a GCS path
                     if "storage.cloud.google.com" in gcs_raw_uri:
                         # Convert https to gs:// before saving if it came from an older process or manual entry
@@ -290,6 +289,7 @@ def _run_video_generation(task_id):
                     else:
                         task.video_gcs_uri = gcs_raw_uri # Assume it's already gs:// or a non-GCS URI
                     
+                    task.status = "completed" # Set status after video_gcs_uri is set
                     print(f"Video generation completed for task {task_id}. GCS URI: {task.video_gcs_uri}")
 
                     # Download video using google-cloud-storage
