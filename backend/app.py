@@ -612,6 +612,9 @@ def health_check():
 @app.route('/api/user-info', methods=['GET'])
 def user_info():
     user_email = request.headers.get('X-Goog-Authenticated-User-Email')
+    # remove "accounts.google.com:" prefix if it exists
+    if user_email and user_email.startswith("accounts.google.com:"):
+        user_email = user_email[len("accounts.google.com:"):]
     # Fallback for local development if header is not present
     if not user_email:
         user_email = "user@dreamer-v.io" # Or None, depending on how frontend should handle it
