@@ -40,6 +40,8 @@ function App() {
   const [isResizing, setIsResizing] = useState(false);
   const [startY, setStartY] = useState(0);
   const [startHeight, setStartHeight] = useState(0);
+  const [userEmail, setUserEmail] = useState(''); // New state for user email
+  const [showUserDropdown, setShowUserDropdown] = useState(false); // New state for user dropdown visibility
 
   const [taskId, setTaskId] = useState(null);
   const [taskStatus, setTaskStatus] = useState('');
@@ -63,6 +65,7 @@ function App() {
   const fileInputRef = useRef(null); // Ref for the file input element
   const lastImagePreviewRef = useRef(null); // New ref for last image preview
   const lastFileInputRef = useRef(null); // New ref for last image file input
+  const userDropdownRef = useRef(null); // Ref for user dropdown
 
   const [activeImageTab, setActiveImageTab] = useState('first'); // 'first' or 'last'
 
@@ -163,6 +166,27 @@ function App() {
   }, [isBackendReady, fetchHistoryTasks]); // Re-run when isBackendReady or fetchHistoryTasks changes
 
   useEffect(() => {
+    const fetchUserEmail = async () => {
+      if (!isBackendReady) return;
+      try {
+        const response = await fetch(`${BACKEND_URL}/user-info`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch user info: ${response.statusText}`);
+        }
+        const data = await response.json();
+        setUserEmail(data.email || '');
+      } catch (error) {
+        console.error('Error fetching user email:', error);
+        // Optionally set an error message or leave email empty
+      }
+    };
+
+    if (isBackendReady) {
+      fetchUserEmail();
+    }
+  }, [isBackendReady, BACKEND_URL]); // Added isBackendReady and BACKEND_URL
+
+  useEffect(() => {
     document.documentElement.setAttribute('data-bs-theme', theme);
   }, [theme]);
 
@@ -200,6 +224,7 @@ function App() {
         setRatio('16:9'); // Default to 16:9
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, duration, selectedLastImage, ratio, activeImageTab, setCameraControl, setDuration, setRatio, setActiveImageTab]); // Added setters to dependency array as per exhaustive-deps, clearLastImagePreview is defined in scope
 
   const handleMouseDownResize = (e) => {
@@ -310,6 +335,19 @@ function App() {
       }
     };
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target)) {
+        setShowUserDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [userDropdownRef]);
 
 
   const toggleTheme = () => {
@@ -896,18 +934,38 @@ function App() {
               <p className="mb-0" style={{ fontSize: '0.8rem', opacity: 0.7, color: 'white' }}>Powered by Google Veo</p>
             </div>
           </header>
-          <div className="form-check form-switch my-3">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              role="switch"
-              id="themeSwitch"
-              checked={theme === 'dark'}
-              onChange={toggleTheme}
-            />
-            <label className="form-check-label" htmlFor="themeSwitch">
-              {theme === 'dark' ? <><i className="bi bi-moon-stars-fill me-2"></i>Dark Mode</> : <><i className="bi bi-sun-fill me-2"></i>Light Mode</>}
-            </label>
+          <div className="d-flex justify-content-between align-items-center my-3">
+            {userEmail && (
+              <div className="dropdown" ref={userDropdownRef}>
+                <button
+                  className={`btn btn-link ${theme === 'dark' ? 'text-light' : 'text-dark'} p-0`}
+                  type="button"
+                  onClick={() => setShowUserDropdown(!showUserDropdown)}
+                  aria-expanded={showUserDropdown}
+                  title="User Info"
+                >
+                  <i className="bi bi-person-circle" style={{ fontSize: '1.5rem' }}></i>
+                </button>
+                {showUserDropdown && (
+                  <ul className={`dropdown-menu show ${theme === 'dark' ? 'dropdown-menu-dark' : ''}`} style={{position: 'absolute', inset: '0px auto auto 0px', margin: '0px', transform: 'translate(0px, 40px)', minWidth: '250px'}}>
+                    <li><span className="dropdown-item-text">{userEmail}</span></li>
+                  </ul>
+                )}
+              </div>
+            )}
+            <div className="form-check form-switch">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="themeSwitch"
+                checked={theme === 'dark'}
+                onChange={toggleTheme}
+              />
+              <label className="form-check-label" htmlFor="themeSwitch">
+                {theme === 'dark' ? <i className="bi bi-moon-stars-fill"></i> : <i className="bi bi-sun-fill"></i>}
+              </label>
+            </div>
           </div>
           {/* Content from original "Input Column" */}
           <div className="card"> {/* Rely on data-bs-theme for dark mode card styling */}

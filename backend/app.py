@@ -609,6 +609,14 @@ def health_check():
     # More sophisticated checks could include DB connectivity, etc.
     return jsonify({"status": "ok", "message": "OK"}), 200
 
+@app.route('/api/user-info', methods=['GET'])
+def user_info():
+    user_email = request.headers.get('X-Goog-Authenticated-User-Email')
+    # Fallback for local development if header is not present
+    if not user_email:
+        user_email = "user@dreamer-v.io" # Or None, depending on how frontend should handle it
+    return jsonify({"email": user_email}), 200
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all() # Create database tables if they don't exist
