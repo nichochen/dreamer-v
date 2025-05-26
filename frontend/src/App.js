@@ -453,34 +453,28 @@ function App() {
       }
 
       if (newStatusFromBackend === 'completed') {
-        
         if (currentVideoUri) {
           // Backend says completed AND URI is available
-          setVideoGcsUri(currentVideoUri); // Set URI first
-          finalTaskStatusToSet = 'completed'; // Then set status
-          setErrorMessage('');
+          setVideoGcsUri(currentVideoUri);
+          finalTaskStatusToSet = 'completed';
+          setErrorMessage(''); // Clear any previous error/waiting message
           if (pollingIntervalId) clearInterval(pollingIntervalId);
           setPollingIntervalId(null);
           setCompletedUriPollRetries(0);
         } else {
-          // Backend says completed, but NO URI yet. Retry for URI.
-          // DO NOT set status to 'completed' yet.
+          // Backend says completed, but NO URI yet.
           setVideoGcsUri(''); // Ensure URI is cleared
           if (completedUriPollRetries < 3) {
             setCompletedUriPollRetries(prev => prev + 1);
-            setErrorMessage(`Task reported complete by backend. Waiting for video URI (attempt ${completedUriPollRetries + 1}/3)...`);
-            // Keep taskStatus as 'processing' or current non-final state.
-            // If it was 'pending', move to 'processing'.
-            finalTaskStatusToSet = (taskStatus === 'pending' || taskStatus === 'Initializing...') ? 'processing' : taskStatus;
-            if (finalTaskStatusToSet === 'completed') finalTaskStatusToSet = 'processing'; // Ensure it's not stuck on 'completed'
-            // Polling continues.
+            finalTaskStatusToSet = 'completed_waiting_uri'; // Explicit status for this state
+            setErrorMessage(''); // Clear other errors, specific message will be in UI for this status
           } else {
             // Retries exhausted for URI
-            finalTaskStatusToSet = 'failed'; 
+            finalTaskStatusToSet = 'failed';
             setErrorMessage("Task completed by backend but no video URI or local path returned after retries.");
             if (pollingIntervalId) clearInterval(pollingIntervalId);
             setPollingIntervalId(null);
-            setCompletedUriPollRetries(0);
+            setCompletedUriPollRetries(0); // Reset retries as task is now failed
           }
         }
       } else if (newStatusFromBackend === 'failed' || newStatusFromBackend === 'error') {
@@ -582,19 +576,73 @@ function App() {
     }
   }, [videoGcsUri, taskStatus]); // videoRef is stable, not needed in deps
 
-  // Effect to reconcile taskStatus with historyTasks if they diverge for the current task
+  // Effect to reconcile taskStatus with historyTasks
   useEffect(() => {
     if (taskId && historyTasks.length > 0) {
-      const currentTaskInHistory = historyTasks.find(t => t.task_id === taskId);
-      if (currentTaskInHistory && currentTaskInHistory.status !== taskStatus) {
-        // If historyTasks has a status for the current task that differs from taskStatus,
-        // update taskStatus to match history. This assumes historyTasks (from /tasks)
-        // might be more up-to-date or the preferred source in case of temporary discrepancy.
-        console.log(`Reconciling taskStatus for ${taskId}: from '${taskStatus}' to '${currentTaskInHistory.status}' based on history update.`);
-        setTaskStatus(currentTaskInHistory.status);
+      const taskFromHistory = historyTasks.find(t => t.task_id === taskId);
+      if (taskFromHistory) {
+        const historyStatus = taskFromHistory.status;
+        const historyVideoUri = taskFromHistory.local_video_path ? `${BACKEND_URL}${taskFromHistory.local_video_path}` : '';
+        const historyErrorMessage = taskFromHistory.error_message || '';
+
+        // Case 1: History has a definitive completed state with URI.
+        // Update UI if it's not already reflecting this state.
+        if (historyStatus === 'completed' && historyVideoUri) {
+          if (taskStatus !== 'completed' || videoGcsUri !== historyVideoUri || errorMessage) {
+            console.log(`Reconciling to 'completed' with URI from history for task ${taskId}.`);
+            setTaskStatus('completed');
+            setVideoGcsUri(historyVideoUri);
+            setErrorMessage(''); 
+            if (pollingIntervalId) { clearInterval(pollingIntervalId); setPollingIntervalId(null); setCompletedUriPollRetries(0); }
+          }
+        }
+        // Case 2: History has a definitive failed state.
+        // Update UI if it's not already reflecting this state.
+        else if (historyStatus === 'failed') {
+          const newErrorMessage = historyErrorMessage || 'Task failed.';
+          if (taskStatus !== 'failed' || videoGcsUri !== historyVideoUri || errorMessage !== newErrorMessage) {
+            console.log(`Reconciling to 'failed' from history for task ${taskId}.`);
+            setTaskStatus('failed');
+            setVideoGcsUri(historyVideoUri); 
+            setErrorMessage(newErrorMessage);
+            if (pollingIntervalId) { clearInterval(pollingIntervalId); setPollingIntervalId(null); setCompletedUriPollRetries(0); }
+          }
+        }
+        // Case 3: History has a definitive error state.
+        // Update UI if it's not already reflecting this state.
+        else if (historyStatus === 'error') {
+            const newErrorMessage = historyErrorMessage || 'Task encountered an error.';
+            if (taskStatus !== 'error' || videoGcsUri !== historyVideoUri || errorMessage !== newErrorMessage) {
+              console.log(`Reconciling to 'error' from history for task ${taskId}.`);
+              setTaskStatus('error');
+              setVideoGcsUri(historyVideoUri); 
+              setErrorMessage(newErrorMessage);
+              if (pollingIntervalId) { clearInterval(pollingIntervalId); setPollingIntervalId(null); setCompletedUriPollRetries(0); }
+            }
+        }
+        // Case 4: History says 'processing' and UI is 'pending' or 'initializing'.
+        // Advance UI state to 'processing'.
+        else if (historyStatus === 'processing' && (taskStatus === 'pending' || taskStatus === 'Initializing...')) {
+            if (taskStatus !== 'processing') { // Avoid redundant sets if already 'processing'
+                console.log(`Reconciling from '${taskStatus}' to 'processing' from history for task ${taskId}.`);
+                setTaskStatus('processing');
+                if (historyVideoUri && videoGcsUri !== historyVideoUri) setVideoGcsUri(historyVideoUri);
+                if (historyErrorMessage && errorMessage !== historyErrorMessage) setErrorMessage(historyErrorMessage);
+            }
+        }
+        // Case 5 (REMOVED / MODIFIED): History says 'completed' but NO URI.
+        // Previously, this might clear a UI-held URI. Now, we are more cautious.
+        // If UI is 'completed' with a URI, we trust that unless polling explicitly fails later or user re-selects from history.
+        // If UI is NOT 'completed', and history says 'completed' without URI, we let polling logic handle it,
+        // as it has retries for "completed but no URI yet".
+        // The only action here is if history says 'completed' (no URI), and UI *also* says 'completed' but *has* a URI.
+        // This could indicate the video was deleted and history is reflecting that.
+        // This specific sub-case of "video deletion" might need more robust handling if it becomes an issue.
+        // For the current bug (URI disappearing), we avoid clearing a URI that pollTaskStatus might have just set.
+        // So, no explicit 'else if' for (historyStatus === 'completed' && !historyVideoUri && ...) that clears videoGcsUri if present.
       }
     }
-  }, [historyTasks, taskId, taskStatus, setTaskStatus]);
+  }, [historyTasks, taskId, taskStatus, videoGcsUri, errorMessage, BACKEND_URL, pollingIntervalId, setTaskStatus, setVideoGcsUri, setErrorMessage, setPollingIntervalId, setCompletedUriPollRetries]);
 
   // Effect for periodic refresh of the entire history if there are ongoing tasks
   useEffect(() => {
@@ -1171,14 +1219,16 @@ function App() {
                       <img src="/fail.png" alt="Failed" style={{ width: '100px', height: '100px', marginBottom: '10px' }} />
                       <p >Something is wrong! Please check your prompt and settings.</p>
                     </div>
-                  ) : videoGcsUri && taskStatus === 'completed' ? (
-                    <video key={videoGcsUri} ref={videoRef} controls autoPlay loop src={videoGcsUri} className="w-100" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', backgroundColor: theme === 'dark' ? '#343a40' : '#000000' }}>
-                      Your browser does not support the video tag.
-                    </video>
-                  ) : !videoGcsUri && taskStatus === 'completed' && errorMessage ? (
-                    <div className={`${theme === 'dark' ? 'bg-secondary' : 'bg-light'} border rounded d-flex align-items-center justify-content-center w-100 h-100`}>
-                      <p className="text-danger">{errorMessage}</p>
-                    </div>
+                  ) : taskStatus === 'completed' ? ( // Group completed tasks
+                    videoGcsUri ? ( // Completed and URI exists
+                      <video key={videoGcsUri} ref={videoRef} controls autoPlay loop src={videoGcsUri} className="w-100" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', backgroundColor: theme === 'dark' ? '#343a40' : '#000000' }}>
+                        Your browser does not support the video tag.
+                      </video>
+                    ) : ( // Completed but NO URI
+                      <div className={`${theme === 'dark' ? 'bg-secondary' : 'bg-light'} border rounded d-flex align-items-center justify-content-center w-100 h-100`}>
+                        <p className="text-danger">{errorMessage || "Video data is unavailable for this completed task."}</p>
+                      </div>
+                    )
                   ) : isLoading || isRefining ? ( // Generic spinner if still loading but not yet processing/failed/completed
                     <div className="d-flex justify-content-center align-items-center w-100 h-100">
                       <div className={`spinner-border ${theme === 'dark' ? 'text-light' : 'text-primary'}`} role="status">
