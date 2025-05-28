@@ -8,4 +8,5 @@ google-cloud-storage>=1.31.0
 google-cloud-aiplatform>=1.38.0 # For Vertex AI integration
 # mediapy
 python-dotenv>=0.15.0 # For loading .env files
+moviepy==2.2.1 # Pin to a specific recent version
 # Add other specific versions if known or required

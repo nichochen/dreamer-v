@@ -89,7 +89,7 @@
 body {
   font-family: 'Inter', sans-serif; /* Example: Using a custom font with Bootstrap */
   margin: 0; /* Ensure no default body margin interferes with 100vh layout */
-  zoom: 0.8; /* Zoom out the entire app by 20% */
+  /* zoom: 0.8; */ /* Zoom out the entire app by 20% - Removed due to dnd issues */
 }
 
 .App {
@@ -117,9 +117,10 @@ body {
 
 .right-sidebar {
   width: 180px; /* Further reduced width for the right sidebar */
-  min-height: 400px; /* Set a minimum height for the history box */
+  min-height: 320px; /* Adjusted minimum height for the history box (was 400px) */
   overflow-y: auto; /* Allow sidebar to scroll independently */
   flex-shrink: 0; /* Prevent sidebar from shrinking */
+  align-self: flex-start; /* Prevent stretching to full height of flex container */
   /* Bootstrap classes like bg-light, p-3, border-start are applied in App.js */
   -webkit-mask-image: linear-gradient(transparent, black 10%, black 90%, transparent);
   mask-image: linear-gradient(transparent, black 10%, black 90%, transparent);
@@ -306,24 +307,25 @@ body {
 /* Custom Pill Toggle Switch Styles */
 .custom-pill-toggle-group {
   display: inline-flex;
-  background-color: #343a40; /* Dark background for the group, similar to image */
+  background-color: #141719; /* Dark background for the group, similar to image */
   border-radius: 20px; /* Rounded corners for the group */
   padding: 4px;
-  border: 1px solid #495057; /* Subtle border for the group */
+  gap: 4px; /* Space between buttons */
+  border: px solid #495057; /* Subtle border for the group */
 }
 
 .custom-pill-toggle-btn {
   background-color: transparent; /* Default transparent background */
   border: none;
-  color: #adb5bd; /* Light gray for inactive text/icon */
-  padding: 8px 16px;
-  margin: 0;
+  color: #ffffff; /* Light gray for inactive text/icon */
+  padding: 4px 4px;
+  margin: 1px;
   border-radius: 16px; /* Rounded corners for buttons */
   cursor: pointer;
   transition: background-color 0.3s ease, color 0.3s ease;
   display: flex;
   align-items: center;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 500;
 }
 

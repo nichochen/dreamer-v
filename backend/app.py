@@ -8,6 +8,7 @@ import base64 # Added for image encoding
 import cv2 # For thumbnail generation
 from dotenv import load_dotenv # For loading .env files
 from google.cloud import storage # For GCS download
+from moviepy import VideoFileClip, concatenate_videoclips # For video concatenation
 from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS # Import CORS
@@ -619,6 +620,135 @@ def user_info():
     if not user_email:
         user_email = "user@dreamer-v.io" # Or None, depending on how frontend should handle it
     return jsonify({"email": user_email}), 200
+
+# --- Composite Video Creation ---
+def _run_composite_video_creation(task_id, source_clip_task_ids_and_prompts):
+    with app.app_context():
+        composite_task = VideoGenerationTask.query.get(task_id)
+        if not composite_task:
+            print(f"Composite task {task_id} not found for processing.")
+            return
+
+        composite_task.status = "processing"
+        composite_task.updated_at = time.time()
+        db.session.commit()
+        print(f"Starting composite video creation for task {task_id}")
+
+        video_clips_to_concatenate = []
+        total_duration = 0
+        first_clip_aspect_ratio = "16:9" # Default
+        final_clip_moviepy = None # Initialize to ensure it's closable in finally
+
+        try:
+            for i, clip_info in enumerate(source_clip_task_ids_and_prompts):
+                source_task_id = clip_info['task_id']
+                source_task = VideoGenerationTask.query.get(source_task_id)
+                if not source_task:
+                    raise ValueError(f"Source clip task {source_task_id} not found.")
+                if source_task.status != "completed" or not source_task.local_video_path:
+                    raise ValueError(f"Source clip task {source_task_id} is not completed or has no local video path ({source_task.status}, {source_task.local_video_path}).")
+                
+                if not os.path.basename(source_task.local_video_path): 
+                    raise ValueError(f"Source clip task {source_task_id} has an invalid local_video_path: {source_task.local_video_path}")
+
+                clip_file_path = os.path.join(videos_dir, os.path.basename(source_task.local_video_path))
+                if not os.path.exists(clip_file_path):
+                    raise ValueError(f"Local video file for clip task {source_task_id} not found at {clip_file_path}.")
+                
+                video_clips_to_concatenate.append(VideoFileClip(clip_file_path))
+                total_duration += source_task.duration_seconds # Assuming duration_seconds is reliable
+                if i == 0: 
+                    first_clip_aspect_ratio = source_task.aspect_ratio
+
+            if not video_clips_to_concatenate:
+                raise ValueError("No valid video clips found to concatenate.")
+
+            composite_task.duration_seconds = total_duration
+            composite_task.aspect_ratio = first_clip_aspect_ratio
+            db.session.commit()
+
+            final_clip_moviepy = concatenate_videoclips(video_clips_to_concatenate, method="compose")
+            
+            composite_video_filename = f"{composite_task.id}.mp4"
+            local_composite_video_full_path = os.path.join(videos_dir, composite_video_filename)
+            # Ensure audio_codec is specified if clips have audio
+            final_clip_moviepy.write_videofile(local_composite_video_full_path, codec="libx264", audio_codec="aac", threads=4, logger='bar')
+
+
+            composite_task.local_video_path = f"/videos/{composite_video_filename}"
+            print(f"Composite video for task {task_id} saved locally to {local_composite_video_full_path}")
+
+            bucket_to_use = composite_task.gcs_output_bucket if composite_task.gcs_output_bucket else DEFAULT_OUTPUT_GCS_BUCKET
+            if bucket_to_use:
+                storage_client_composite = storage.Client()
+                composite_bucket_name = bucket_to_use.replace("gs://", "")
+                bucket_composite = storage_client_composite.bucket(composite_bucket_name)
+                composite_blob_name = f"composite_videos/{composite_task.id}/{composite_video_filename}"
+                blob_composite = bucket_composite.blob(composite_blob_name)
+                
+                blob_composite.upload_from_filename(local_composite_video_full_path)
+                composite_task.video_gcs_uri = f"gs://{composite_bucket_name}/{composite_blob_name}"
+                print(f"Composite video for task {task_id} uploaded to GCS: {composite_task.video_gcs_uri}")
+            else:
+                print(f"No GCS bucket configured for composite task {task_id}. Skipping GCS upload.")
+                composite_task.video_gcs_uri = None
+
+            composite_thumbnail_filename = f"{composite_task.id}.jpg"
+            local_composite_thumbnail_full_path = os.path.join(thumbnails_dir, composite_thumbnail_filename)
+            vid_cap_composite = cv2.VideoCapture(local_composite_video_full_path)
+            success_thumb, image_thumb = vid_cap_composite.read()
+            if success_thumb:
+                cv2.imwrite(local_composite_thumbnail_full_path, image_thumb)
+                composite_task.local_thumbnail_path = f"/thumbnails/{composite_thumbnail_filename}"
+                print(f"Thumbnail for composite task {task_id} generated successfully.")
+            else:
+                print(f"Failed to extract frame for composite thumbnail for task {task_id}.")
+            vid_cap_composite.release()
+
+            composite_task.status = "completed"
+
+        except Exception as e:
+            composite_task.status = "failed"
+            composite_task.error_message = str(e)
+            print(f"Exception during composite video creation for task {task_id}: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            for clip_obj in video_clips_to_concatenate:
+                if hasattr(clip_obj, 'reader') and clip_obj.reader:
+                    clip_obj.close()
+            if final_clip_moviepy and hasattr(final_clip_moviepy, 'reader') and final_clip_moviepy.reader:
+                 final_clip_moviepy.close()
+            
+            composite_task.updated_at = time.time()
+            db.session.commit()
+
+@app.route('/api/create_composite_video', methods=['POST'])
+def create_composite_video_route():
+    data = request.get_json()
+    if not data or 'clips' not in data or not isinstance(data['clips'], list) or not data['clips']:
+        return jsonify({"error": "A non-empty list of 'clips' (each with a 'task_id') is required"}), 400
+
+    source_clips_info = data['clips'] 
+    composite_prompt = data.get('prompt', "Composite video from selected clips") 
+
+    for clip_info in source_clips_info:
+        if 'task_id' not in clip_info:
+            return jsonify({"error": "Each clip in the 'clips' list must have a 'task_id'"}), 400
+    
+    new_composite_task = VideoGenerationTask(
+        prompt=composite_prompt,
+        model="COMPOSITE_VIDEO", 
+        status="pending",
+        gcs_output_bucket=data.get('gcs_output_bucket', DEFAULT_OUTPUT_GCS_BUCKET) 
+    )
+    db.session.add(new_composite_task)
+    db.session.commit()
+    
+    thread = threading.Thread(target=_run_composite_video_creation, args=(new_composite_task.id, source_clips_info))
+    thread.start()
+    
+    return jsonify({"message": "Composite video creation started", "task_id": new_composite_task.id}), 202
 
 if __name__ == '__main__':
     with app.app_context():
