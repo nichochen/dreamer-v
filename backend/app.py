@@ -461,7 +461,7 @@ def refine_prompt_route():
 
         si_text1 = """Help user to improve the prompt for Veo 2 video generation. Follow the rules below:
 Translate the prompt into English
-Refine the prompt for generate better video, be creative
+Refine the prompt for generate better video
 Output the prompt only
 Do only prompt refine not anything else"""
 
