@@ -68,6 +68,7 @@ function App() {
   const [historyTasks, setHistoryTasks] = useState([]);
   const [historyFilter, setHistoryFilter] = useState(''); // New state for history filter
   const [isRefining, setIsRefining] = useState(false); // New state for refine button loading
+  const [activeSpinnerButtonKey, setActiveSpinnerButtonKey] = useState(''); // New state for specific spinning button
   const [isExtending, setIsExtending] = useState(false); // New state for extend button loading
   const [completedUriPollRetries, setCompletedUriPollRetries] = useState(0); // For retrying URI fetch on completion
 
@@ -823,7 +824,7 @@ function App() {
     }
   };
 
-  const handleRefinePrompt = async (promptToRefine) => {
+  const handleRefinePrompt = async (promptToRefine, buttonKey = null) => {
     const currentPromptValue = promptToRefine || prompt; // Use passed prompt or state
 
     if (!currentPromptValue.trim() || isRefining) {
@@ -833,6 +834,7 @@ function App() {
       return;
     }
     setIsRefining(true);
+    if (buttonKey) setActiveSpinnerButtonKey(buttonKey);
     setErrorMessage(''); // Clear previous errors
 
     try {
@@ -865,6 +867,7 @@ function App() {
       setErrorMessage(error.message || 'Failed to refine prompt.');
     } finally {
       setIsRefining(false);
+      setActiveSpinnerButtonKey('');
     }
   };
 
@@ -877,7 +880,7 @@ function App() {
     // Add a space only if basePrompt is not empty
     const newPrompt = basePrompt ? `${basePrompt} ${keywordToAdd}` : keywordToAdd;
     setPrompt(newPrompt); // Update UI prompt immediately
-    await handleRefinePrompt(newPrompt); // Pass the new prompt for refining
+    await handleRefinePrompt(newPrompt, keywordToAdd); // Pass the new prompt and keyword as buttonKey
   };
 
   const handleExtendVideoClick = async (taskIdToExtend) => {
@@ -924,10 +927,10 @@ function App() {
   };
 
   const promptActionButtons = [
-    { label: t("refinePromptButton"), onClick: () => handleRefinePrompt(), icon: "bi-stars", keywordEffect: false, disabled: !prompt.trim() },
+    { label: t("refinePromptButton"), onClick: () => handleRefinePrompt(prompt, t("refinePromptButton")), icon: "bi-stars", keywordEffect: false, disabled: !prompt.trim() },
     { label: t("nightTimeButton"), keyword: "night time", icon: "bi-moon-stars-fill", keywordEffect: true },
-    { label: t("dayTimeButton"), keyword: "day time", icon: "bi-sun-fill", keywordEffect: true },
-    { label: t("rotation360Button"), keyword: "rotation the object 360 degree", icon: "bi-arrow-repeat", keywordEffect: true },
+    { label: t("cinematicButton"), keyword: "cinematic, 8K", icon: "bi-film", keywordEffect: true },
+    { label: t("animationButton"), keyword: "animation, pixar 3D style", icon: "bi-easel2", keywordEffect: true },
     { label: t("realisticButton"), keyword: "realistic", icon: "bi-camera-fill", keywordEffect: true },
     { label: t("creativeButton"), keyword: "creative", icon: "bi-lightbulb-fill", keywordEffect: true },
   ];
@@ -1051,7 +1054,7 @@ function App() {
                       style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0' }}
                       disabled={isLoading || isRefining || (btn.disabled !== undefined ? btn.disabled : false)}
                     >
-                      {isRefining && btn.label === t("refinePromptButton") ? (
+                      {isRefining && activeSpinnerButtonKey === (btn.keywordEffect ? btn.keyword : btn.label) ? (
                         <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                       ) : (
                         <i className={`bi ${btn.icon}`} style={{ fontSize: '1.1rem' }}></i>
@@ -1399,7 +1402,7 @@ function App() {
                     </>
                   )}
                   {errorMessage && taskStatus !== STATUS_COMPLETED && <p className="card-text text-danger mb-2"><strong><i className="bi bi-exclamation-triangle me-2"></i>{t('taskErrorLabel')}</strong> {errorMessage}</p>}
-                  {(taskStatus === STATUS_COMPLETED || taskStatus === STATUS_FAILED || taskStatus === STATUS_ERROR) && (
+                  {(taskStatus === STATUS_PROCESSING || taskStatus === STATUS_COMPLETED || taskStatus === STATUS_FAILED || taskStatus === STATUS_ERROR) && (
                     <div>
                       <button
                         className="btn btn-danger btn-sm mt-2 me-2"
