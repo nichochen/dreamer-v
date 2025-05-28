@@ -97,5 +97,15 @@
   "creatingVideoButtonInProgress": "正在创建视频...",
   "errorNoClipsToCreateVideo": "轨道中没有片段可用于创建视频。",
   "createVideoInitiatedMessage": "视频创建已启动。请在历史记录中查看进度。",
-  "errorMaxClipsReached": "轨道中最多允许 {{maxClips}} 个片段。"
+  "errorMaxClipsReached": "轨道中最多允许 {{maxClips}} 个片段。",
+  "musicSectionTitle": "音乐",
+  "uploadMusicFileLabel": "上传MP3音频文件",
+  "selectedMusicFileLabel": "已选音乐",
+  "generateMusicButton": "生成音乐",
+  "generatingMusicButtonInProgress": "音乐生成中...",
+  "errorMusicFileTooLarge": "音乐文件过大 (最大 {{maxSize}})。",
+  "errorInvalidMusicFileType": "无效的音乐文件类型。请上传MP3格式文件。",
+  "musicGenerationNotImplemented": "音乐生成功能尚未实现。",
+  "musicToggleOn": "音乐开",
+  "musicToggleOff": "音乐关"
 }

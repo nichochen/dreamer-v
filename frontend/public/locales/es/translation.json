@@ -97,5 +97,15 @@
   "creatingVideoButtonInProgress": "Creando Video...",
   "errorNoClipsToCreateVideo": "No hay clips en la pista para crear un video.",
   "createVideoInitiatedMessage": "Creación de video iniciada. Revisa el historial para ver el progreso.",
-  "errorMaxClipsReached": "Máximo {{maxClips}} clips permitidos en la pista."
+  "errorMaxClipsReached": "Máximo {{maxClips}} clips permitidos en la pista.",
+  "musicSectionTitle": "Música",
+  "uploadMusicFileLabel": "Subir Archivo de Audio MP3",
+  "selectedMusicFileLabel": "Música seleccionada",
+  "generateMusicButton": "Generar Música",
+  "generatingMusicButtonInProgress": "Generando Música...",
+  "errorMusicFileTooLarge": "El archivo de música es demasiado grande (máx. {{maxSize}}).",
+  "errorInvalidMusicFileType": "Tipo de archivo de música no válido. Por favor, sube un MP3.",
+  "musicGenerationNotImplemented": "La función de generación de música aún no está implementada.",
+  "musicToggleOn": "Música ACTIVADA",
+  "musicToggleOff": "Música DESACTIVADA"
 }

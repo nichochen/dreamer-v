@@ -68,6 +68,9 @@ function App() {
   const [selectedClipInTrack, setSelectedClipInTrack] = useState(null); // To highlight selected clip in track (will store trackInstanceId)
   const [isCreatingVideo, setIsCreatingVideo] = useState(false); // New state for "Create Video" button loading
   const [hoveredHistoryTaskId, setHoveredHistoryTaskId] = useState(null); // For history item hover effect in Create mode
+  const [selectedMusicFile, setSelectedMusicFile] = useState(null); // For storing the uploaded music file
+  const [isGeneratingMusic, setIsGeneratingMusic] = useState(false); // For "Generate Music" button loading
+  const [isMusicEnabled, setIsMusicEnabled] = useState(false); // New state for music toggle, default false
 
 
   // State for backend readiness
@@ -569,6 +572,13 @@ function App() {
               createModeClips={createModeClips}
               onCreateVideoClick={doHandleCreateVideoClick}
               isCreatingVideo={isCreatingVideo}
+              // Music Props
+              onMusicFileUpload={(e) => Handlers.handleMusicFileUpload(e, setSelectedMusicFile, setErrorMessage, t)}
+              onGenerateMusicClick={() => Api.handleGenerateMusicClick(setIsGeneratingMusic, setErrorMessage, t)} // Assuming a new handler in Api.js
+              isGeneratingMusic={isGeneratingMusic}
+              selectedMusicFile={selectedMusicFile}
+              isMusicEnabled={isMusicEnabled}
+              onToggleMusic={() => setIsMusicEnabled(prev => !prev)}
             />
             <MainContent
               theme={theme}

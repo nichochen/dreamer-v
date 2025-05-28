@@ -45,6 +45,26 @@ export const handlePasteFromClipboard = async (target, setSelectedImage, setImag
   }
 };
 
+export const handleMusicFileUpload = (event, setSelectedMusicFile, setErrorMessage, t) => {
+  const file = event.target.files[0];
+  if (file) {
+    if (file.type === "audio/mpeg" || file.name.endsWith(".mp3")) {
+      if (file.size <= 10 * 1024 * 1024) { // 10MB limit
+        setSelectedMusicFile(file);
+        setErrorMessage(''); // Clear any previous error
+      } else {
+        setErrorMessage(t('errorMusicFileTooLarge', { maxSize: '10MB' }));
+        setSelectedMusicFile(null);
+        event.target.value = null; // Reset file input
+      }
+    } else {
+      setErrorMessage(t('errorInvalidMusicFileType'));
+      setSelectedMusicFile(null);
+      event.target.value = null; // Reset file input
+    }
+  }
+};
+
 export const handleMouseDownResize = (e, setIsResizing, setStartY, setStartHeight, videoHeight) => {
   setIsResizing(true);
   setStartY(e.clientY);

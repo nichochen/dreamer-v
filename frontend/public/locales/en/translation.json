@@ -98,5 +98,15 @@
   "errorNoClipsToCreateVideo": "No clips in the track to create a video.",
   "createVideoInitiatedMessage": "Video creation initiated. Check history for progress.",
   "timelineLabel": "Timeline",
-  "errorMaxClipsReached": "Maximum {{maxClips}} clips allowed in the track."
+  "errorMaxClipsReached": "Maximum {{maxClips}} clips allowed in the track.",
+  "musicSectionTitle": "Music",
+  "uploadMusicFileLabel": "Upload MP3 Audio File",
+  "selectedMusicFileLabel": "Selected music",
+  "generateMusicButton": "Generate Music",
+  "generatingMusicButtonInProgress": "Generating Music...",
+  "errorMusicFileTooLarge": "Music file is too large (max {{maxSize}}).",
+  "errorInvalidMusicFileType": "Invalid music file type. Please upload an MP3.",
+  "musicGenerationNotImplemented": "Music generation feature is not yet implemented.",
+  "musicToggleOn": "Music ON",
+  "musicToggleOff": "Music OFF"
 }

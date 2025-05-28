@@ -42,6 +42,13 @@ function Sidebar({
   createModeClips,
   onCreateVideoClick,
   isCreatingVideo,
+  // Music Props
+  onMusicFileUpload,
+  onGenerateMusicClick,
+  isGeneratingMusic, // To disable button while generating
+  selectedMusicFile, // To display the name of the uploaded file
+  isMusicEnabled, // New prop for music toggle state
+  onToggleMusic, // New prop for handling music toggle
 }) {
   return (
     <div className={`sidebar p-3 border-end ${theme === 'dark' ? 'bg-dark text-light' : 'bg-light text-dark'}`}>
@@ -333,11 +340,58 @@ function Sidebar({
       )}
 
       {activeView === 'create' && (
-        <div className="card">
-          <div className="card-body text-center">
-            <button
-              className={`btn btn-primary btn-lg mt-2`}
-              onClick={onCreateVideoClick}
+        <>
+          <div className="card mb-3">
+            <div className="card-body">
+              <h5 className={`card-title h6 mb-3 ${theme === 'dark' ? 'text-light' : 'text-muted'}`}><i className="bi bi-music-note-beamed me-2"></i>{t('musicSectionTitle')}</h5>
+              <div className="mb-3">
+                <label htmlFor="musicFileUpload" className="form-label">{t('uploadMusicFileLabel')}</label>
+                <input
+                  type="file"
+                  className="form-control form-control-sm"
+                  id="musicFileUpload"
+                  accept=".mp3"
+                  onChange={onMusicFileUpload}
+                  disabled={isCreatingVideo || isGeneratingMusic || !isMusicEnabled}
+                />
+                {selectedMusicFile && isMusicEnabled && <small className="form-text text-muted mt-1 d-block">{t('selectedMusicFileLabel')}: {selectedMusicFile.name}</small>}
+              </div>
+              <div className="text-center mb-2">
+                <span className={`${theme === 'dark' ? 'text-light' : 'text-muted'}`}>{t('orSeparator')}</span>
+              </div>
+              <button
+                className={`btn btn-outline-secondary w-100 mb-3`}
+                onClick={onGenerateMusicClick}
+                disabled={isCreatingVideo || isGeneratingMusic || !isMusicEnabled}
+              >
+                {isGeneratingMusic ? (
+                  <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>{t('generatingMusicButtonInProgress')}</>
+                ) : (
+                  <><i className="bi bi-soundwave me-2"></i>{t('generateMusicButton')}</>
+                )}
+              </button>
+              <div className="form-check form-switch mt-3">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="musicToggleSwitch"
+                  checked={isMusicEnabled}
+                  onChange={onToggleMusic}
+                  disabled={isCreatingVideo || isGeneratingMusic}
+                />
+                <label className="form-check-label" htmlFor="musicToggleSwitch">
+                  {isMusicEnabled ? t('musicToggleOn') : t('musicToggleOff')}
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-body text-center">
+              <button
+                className={`btn btn-primary btn-lg mt-2`}
+                onClick={onCreateVideoClick}
               disabled={isCreatingVideo || createModeClips.length < 2}
             >
               {isCreatingVideo ? (
@@ -348,6 +402,7 @@ function Sidebar({
             </button>
           </div>
         </div>
+      </>
       )}
     </div>
   );

@@ -97,5 +97,15 @@
   "creatingVideoButtonInProgress": "ビデオを作成中...",
   "errorNoClipsToCreateVideo": "ビデオを作成するためのクリップがトラックにありません。",
   "createVideoInitiatedMessage": "ビデオ作成が開始されました。進行状況は履歴で確認してください。",
-  "errorMaxClipsReached": "トラックに追加できるクリップは最大{{maxClips}}個です。"
+  "errorMaxClipsReached": "トラックに追加できるクリップは最大{{maxClips}}個です。",
+  "musicSectionTitle": "音楽",
+  "uploadMusicFileLabel": "MP3オーディオファイルをアップロード",
+  "selectedMusicFileLabel": "選択された音楽",
+  "generateMusicButton": "音楽を生成",
+  "generatingMusicButtonInProgress": "音楽を生成中...",
+  "errorMusicFileTooLarge": "音楽ファイルが大きすぎます (最大 {{maxSize}})。",
+  "errorInvalidMusicFileType": "無効な音楽ファイルタイプです。MP3をアップロードしてください。",
+  "musicGenerationNotImplemented": "音楽生成機能はまだ実装されていません。",
+  "musicToggleOn": "音楽 オン",
+  "musicToggleOff": "音楽 オフ"
 }
