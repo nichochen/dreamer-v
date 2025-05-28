@@ -86,5 +86,15 @@
   "completedStatus": "completado",
   "failedStatus": "fallido",
   "errorStatus": "error",
-  "completedWaitingUriStatus": "completado_esperando_uri"
+  "completedWaitingUriStatus": "completado_esperando_uri",
+  "dreamView": "Soñar",
+  "createView": "Crear",
+  "createVideoPlaceholder": "Selecciona o añade un clip a la pista para reproducir.",
+  "createClipTrackPlaceholder": "Haz clic en tareas del historial para añadir clips aquí.",
+  "clearClipTrackButton": "Limpiar Pista de Clips",
+  "removeClipFromTrackTitle": "Eliminar clip de la pista",
+  "createVideoButton": "Crear Video",
+  "creatingVideoButtonInProgress": "Creando Video...",
+  "errorNoClipsToCreateVideo": "No hay clips en la pista para crear un video.",
+  "createVideoInitiatedMessage": "Creación de video iniciada. Revisa el historial para ver el progreso."
 }

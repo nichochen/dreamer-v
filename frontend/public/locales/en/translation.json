@@ -86,5 +86,15 @@
   "completedStatus": "completed",
   "failedStatus": "failed",
   "errorStatus": "error",
-  "completedWaitingUriStatus": "completed_waiting_uri"
+  "completedWaitingUriStatus": "completed_waiting_uri",
+  "dreamView": "Dream",
+  "createView": "Create",
+  "createVideoPlaceholder": "Select or add a clip to the track to play.",
+  "createClipTrackPlaceholder": "Click tasks in history to add clips here.",
+  "clearClipTrackButton": "Clear Clip Track",
+  "removeClipFromTrackTitle": "Remove clip from track",
+  "createVideoButton": "Create Video",
+  "creatingVideoButtonInProgress": "Creating Video...",
+  "errorNoClipsToCreateVideo": "No clips in the track to create a video.",
+  "createVideoInitiatedMessage": "Video creation initiated. Check history for progress."
 }

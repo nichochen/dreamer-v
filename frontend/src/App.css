@@ -302,3 +302,181 @@ body {
   color: var(--bs-secondary-color); /* Theme-aware icon color */
   font-size: 1rem; /* Adjust icon size if needed */
 }
+
+/* Custom Pill Toggle Switch Styles */
+.custom-pill-toggle-group {
+  display: inline-flex;
+  background-color: #343a40; /* Dark background for the group, similar to image */
+  border-radius: 20px; /* Rounded corners for the group */
+  padding: 4px;
+  border: 1px solid #495057; /* Subtle border for the group */
+}
+
+.custom-pill-toggle-btn {
+  background-color: transparent; /* Default transparent background */
+  border: none;
+  color: #adb5bd; /* Light gray for inactive text/icon */
+  padding: 8px 16px;
+  margin: 0;
+  border-radius: 16px; /* Rounded corners for buttons */
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.custom-pill-toggle-btn i {
+  margin-right: 8px; /* Space between icon and text */
+  font-size: 1rem; /* Icon size */
+}
+
+.custom-pill-toggle-btn.active {
+  background-color: #0d6efd; /* Blue background for active button, similar to Bootstrap primary */
+  color: white; /* White text/icon for active button */
+}
+
+.custom-pill-toggle-btn:not(.active):hover {
+  background-color: #495057; /* Slightly lighter background on hover for inactive */
+  color: #f8f9fa; /* Lighter text on hover for inactive */
+}
+
+/* Theme-specific adjustments if needed */
+[data-bs-theme="light"] .custom-pill-toggle-group {
+  background-color: #e9ecef; /* Lighter background for light theme */
+  border: 1px solid #ced4da;
+}
+
+[data-bs-theme="light"] .custom-pill-toggle-btn {
+  color: #495057; /* Darker text for inactive in light theme */
+}
+
+[data-bs-theme="light"] .custom-pill-toggle-btn.active {
+  background-color: #0d6efd; /* Bootstrap primary blue */
+  color: white;
+}
+
+[data-bs-theme="light"] .custom-pill-toggle-btn:not(.active):hover {
+  background-color: #ced4da;
+  color: #212529;
+}
+
+/* Top Toolbar Styles */
+.top-toolbar {
+  padding: 0.25rem 1rem; /* Thin padding */
+  background-color: var(--bs-tertiary-bg); /* Subtle background, theme-aware */
+  border-bottom: 1px solid var(--bs-border-color-translucent); /* Subtle border */
+  display: flex;
+  justify-content: flex-end; /* Align items to the right */
+  align-items: center;
+  width: 100%;
+  height: 40px; /* Fixed thin height */
+  box-sizing: border-box;
+}
+
+.top-toolbar .dropdown,
+.top-toolbar .form-check-input {
+  font-size: 0.85rem; /* Slightly smaller font for toolbar items */
+}
+.top-toolbar .btn-link,
+.top-toolbar .btn-outline-secondary {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  font-size: 0.85rem;
+}
+.top-toolbar .bi-person-circle {
+  font-size: 1.25rem; /* Slightly smaller user icon */
+}
+
+.top-toolbar > * {
+  margin-left: 0.75rem; /* Spacing between items in the toolbar */
+}
+.top-toolbar > *:first-child {
+  margin-left: 0; /* No margin for the first item if it were on the left */
+}
+
+/* Create Mode - Video Clip Track Styles */
+.video-clip-track .card-body {
+  display: flex;
+  overflow-x: auto; /* Allow horizontal scrolling for thumbnails */
+  padding: 0.5rem; /* Small padding inside the track */
+  min-height: 100px; /* Minimum height for the track */
+}
+
+.clip-thumbnail-item {
+  flex-shrink: 0; /* Prevent thumbnails from shrinking */
+  width: 100px; /* Thumbnail width */
+  height: 70px;  /* Thumbnail height */
+  margin-right: 0.5rem;
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--bs-secondary-bg-subtle);
+  transition: border-color 0.2s ease-in-out;
+  position: relative; /* For positioning the delete button */
+}
+
+.clip-thumbnail-item:hover {
+  border-color: var(--bs-primary-border-subtle);
+}
+
+.clip-thumbnail-item.active {
+  border-color: var(--bs-primary); /* Highlight active clip */
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.5);
+}
+
+.clip-thumbnail-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.clip-thumbnail-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-secondary-color);
+}
+
+.clip-thumbnail-placeholder i {
+  font-size: 1.5rem;
+}
+
+.clip-delete-btn {
+  position: absolute;
+  top: 2px; /* Small offset from the top */
+  right: 2px; /* Small offset from the right */
+  width: 20px; /* Small width */
+  height: 20px; /* Small height */
+  border-radius: 50%; /* Make it round */
+  background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent dark background */
+  color: white;
+  border: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 0.7rem; /* Smaller icon */
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  z-index: 10; /* Ensure it's above the image */
+  opacity: 0.7;
+  transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
+}
+
+.clip-delete-btn:hover {
+  background-color: rgba(220, 53, 69, 0.9); /* More opaque red on hover */
+  opacity: 1;
+}
+
+.clip-delete-btn i {
+ margin-right: 0 !important; /* Override any global icon margin if present */
+}

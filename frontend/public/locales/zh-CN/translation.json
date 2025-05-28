@@ -86,5 +86,15 @@
   "completedStatus": "已完成",
   "failedStatus": "失败",
   "errorStatus": "错误",
-  "completedWaitingUriStatus": "已完成_等待URI"
+  "completedWaitingUriStatus": "已完成_等待URI",
+  "dreamView": "造梦",
+  "createView": "创建",
+  "createVideoPlaceholder": "选择或添加片段到轨道以播放。",
+  "createClipTrackPlaceholder": "点击历史记录中的任务以添加片段到此处。",
+  "clearClipTrackButton": "清空片段轨道",
+  "removeClipFromTrackTitle": "从轨道中移除片段",
+  "createVideoButton": "创建视频",
+  "creatingVideoButtonInProgress": "正在创建视频...",
+  "errorNoClipsToCreateVideo": "轨道中没有片段可用于创建视频。",
+  "createVideoInitiatedMessage": "视频创建已启动。请在历史记录中查看进度。"
 }

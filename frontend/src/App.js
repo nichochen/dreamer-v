@@ -71,12 +71,20 @@ function App() {
   const [activeSpinnerButtonKey, setActiveSpinnerButtonKey] = useState(''); // New state for specific spinning button
   const [isExtending, setIsExtending] = useState(false); // New state for extend button loading
   const [completedUriPollRetries, setCompletedUriPollRetries] = useState(0); // For retrying URI fetch on completion
+  const [activeView, setActiveView] = useState('dream'); // 'dream' or 'create'
+  const [createModeClips, setCreateModeClips] = useState([]); // For "Create" mode video track
+  const [activeCreateModeVideoSrc, setActiveCreateModeVideoSrc] = useState(''); // For "Create" mode main player
+  const [selectedClipInTrack, setSelectedClipInTrack] = useState(null); // To highlight selected clip in track (will store trackInstanceId)
+  const [isCreatingVideo, setIsCreatingVideo] = useState(false); // New state for "Create Video" button loading
+  const [hoveredHistoryTaskId, setHoveredHistoryTaskId] = useState(null); // For history item hover effect in Create mode
+
 
   // State for backend readiness
   const [isBackendReady, setIsBackendReady] = useState(false);
   // backendError state is removed as per feedback to always show loading and keep polling.
 
   const videoRef = useRef(null); // Ref for the video element
+  const createModeVideoRef = useRef(null); // Ref for the create mode video player
   const videoContainerRef = useRef(null); // Ref for the video container div that will be resized
   const imagePreviewRef = useRef(null); // Ref for the image preview div
   const fileInputRef = useRef(null); // Ref for the file input element
@@ -625,7 +633,7 @@ function App() {
   useEffect(() => {
     // Autoplay video when a completed task's video becomes available
     // This is triggered when a history item is clicked and states are updated
-    if (videoRef.current && videoGcsUri && taskStatus === STATUS_COMPLETED) {
+    if (videoRef.current && videoGcsUri && taskStatus === STATUS_COMPLETED && activeView === 'dream') {
       videoRef.current.load(); // Ensure the new source is loaded
       videoRef.current.play().catch(error => {
         console.warn("Video autoplay failed:", error);
@@ -633,11 +641,15 @@ function App() {
         // The 'controls' attribute allows manual play.
       });
     }
-  }, [videoGcsUri, taskStatus]); // videoRef is stable, not needed in deps
+    if (createModeVideoRef.current && activeCreateModeVideoSrc && activeView === 'create') {
+      createModeVideoRef.current.load();
+      createModeVideoRef.current.play().catch(error => console.warn("Create mode video autoplay failed:", error));
+    }
+  }, [videoGcsUri, taskStatus, activeCreateModeVideoSrc, activeView]); // videoRef is stable, not needed in deps
 
   // Effect to reconcile taskStatus with historyTasks
   useEffect(() => {
-    if (taskId && historyTasks.length > 0) {
+    if (taskId && historyTasks.length > 0 && activeView === 'dream') { // Only reconcile if in dream view
       const taskFromHistory = historyTasks.find(t => t.task_id === taskId);
       if (taskFromHistory) {
         const historyStatus = taskFromHistory.status;
@@ -689,19 +701,9 @@ function App() {
                 if (historyErrorMessage && errorMessage !== historyErrorMessage) setErrorMessage(historyErrorMessage);
             }
         }
-        // Case 5 (REMOVED / MODIFIED): History says 'completed' but NO URI.
-        // Previously, this might clear a UI-held URI. Now, we are more cautious.
-        // If UI is 'completed' with a URI, we trust that unless polling explicitly fails later or user re-selects from history.
-        // If UI is NOT 'completed', and history says 'completed' without URI, we let polling logic handle it,
-        // as it has retries for "completed but no URI yet".
-        // The only action here is if history says 'completed' (no URI), and UI *also* says 'completed' but *has* a URI.
-        // This could indicate the video was deleted and history is reflecting that.
-        // This specific sub-case of "video deletion" might need more robust handling if it becomes an issue.
-        // For the current bug (URI disappearing), we avoid clearing a URI that pollTaskStatus might have just set.
-        // So, no explicit 'else if' for (historyStatus === 'completed' && !historyVideoUri && ...) that clears videoGcsUri if present.
       }
     }
-  }, [historyTasks, taskId, taskStatus, videoGcsUri, errorMessage, BACKEND_URL, pollingIntervalId, setTaskStatus, setVideoGcsUri, setErrorMessage, setPollingIntervalId, setCompletedUriPollRetries, t]);
+  }, [historyTasks, taskId, taskStatus, videoGcsUri, errorMessage, BACKEND_URL, pollingIntervalId, activeView, setTaskStatus, setVideoGcsUri, setErrorMessage, setPollingIntervalId, setCompletedUriPollRetries, t]);
 
   // Effect for periodic refresh of the entire history if there are ongoing tasks
   useEffect(() => {
@@ -709,77 +711,76 @@ function App() {
     let historyRefreshIntervalId = null;
 
     if (hasNonFinalTasks) {
-      // console.log("Setting up periodic history refresh interval.");
       historyRefreshIntervalId = setInterval(() => {
-        // console.log("Periodic history refresh triggered.");
         fetchHistoryTasks();
-      }, 10000); // Refresh history every 10 seconds
-    } else {
-      // console.log("No non-final tasks, periodic history refresh not needed or will be cleared.");
+      }, 10000); 
     }
-
     return () => {
       if (historyRefreshIntervalId) {
-        // console.log("Clearing periodic history refresh interval.");
         clearInterval(historyRefreshIntervalId);
       }
     };
-  }, [historyTasks, fetchHistoryTasks]); // Rerun when historyTasks changes
+  }, [historyTasks, fetchHistoryTasks]); 
 
-  const handleHistoryItemClick = async (task) => { // Made async
-    // Stop any ongoing polling for the current task
+  const handleHistoryItemClick = async (task) => { 
     if (pollingIntervalId) {
       clearInterval(pollingIntervalId);
       setPollingIntervalId(null);
     }
-    setCompletedUriPollRetries(0); // Reset retries when selecting from history
+    setCompletedUriPollRetries(0); 
 
-    // Set the main view to this historical task
-    setPrompt(task.prompt);
-    setModel(task.model || 'veo-2.0-generate-001'); // Set model from history or default
-    setRatio(task.aspect_ratio || '16:9'); // Set ratio from history or default
-    setCameraControl(task.camera_control || 'FIXED'); // Set camera control from history or default
-    setDuration(task.duration_seconds || 5); // Set duration from history or default, changed to 5
-    setGcsOutputBucket(task.gcs_output_bucket || ''); // Set GCS bucket from history or empty
-    setTaskId(task.task_id);
-    setVideoGcsUri(task.local_video_path ? `${BACKEND_URL}${task.local_video_path}` : '');
-    setTaskStatus(task.status);
-    setErrorMessage(task.error_message || '');
-    setIsLoading(false); // Ensure loading is false when selecting from history
+    if (activeView === 'create') {
+      const newTrackInstanceId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      const newClipInstance = { ...task, trackInstanceId: newTrackInstanceId };
+      setCreateModeClips(prevClips => [...prevClips, newClipInstance]);
 
-    // Clear previous selections and previews first
-    setSelectedImage(null);
-    setImagePreview('');
-    setSelectedLastImage(null);
-    setLastImagePreview('');
+      if (newClipInstance.local_video_path) {
+        setActiveCreateModeVideoSrc(`${BACKEND_URL}${newClipInstance.local_video_path}`);
+        setSelectedClipInTrack(newTrackInstanceId);
+      }
+      // For create mode, we don't want to overwrite the main dream prompt/settings
+      // We also don't want to set the global taskId, taskStatus etc. as those are for dream view.
+      // We also don't want to clear image previews for dream mode.
+    } else { // Dream view
+      setPrompt(task.prompt);
+      setModel(task.model || 'veo-2.0-generate-001'); 
+      setRatio(task.aspect_ratio || '16:9'); 
+      setCameraControl(task.camera_control || 'FIXED'); 
+      setDuration(task.duration_seconds || 5); 
+      setGcsOutputBucket(task.gcs_output_bucket || ''); 
+      setTaskId(task.task_id);
+      setVideoGcsUri(task.local_video_path ? `${BACKEND_URL}${task.local_video_path}` : '');
+      setTaskStatus(task.status);
+      setErrorMessage(task.error_message || '');
+      setIsLoading(false); 
 
-    if (task.original_image_path) {
-      const imageUrl = `${BACKEND_URL}${task.original_image_path}`;
-      setImagePreview(imageUrl); // Set preview immediately
-      // Attempt to fetch the image and set it as a File object for re-submission
-      const imageFile = await urlToImageFile(imageUrl, task.original_image_path.split('/').pop());
-      if (imageFile) {
-        setSelectedImage(imageFile);
-      } else {
-        console.warn("Could not load original image as file for re-submission.");
-        // Optionally, inform the user they might need to re-upload if they want to use this image
+      setSelectedImage(null);
+      setImagePreview('');
+      setSelectedLastImage(null);
+      setLastImagePreview('');
+
+      if (task.original_image_path) {
+        const imageUrl = `${BACKEND_URL}${task.original_image_path}`;
+        setImagePreview(imageUrl); 
+        const imageFile = await urlToImageFile(imageUrl, task.original_image_path.split('/').pop());
+        if (imageFile) {
+          setSelectedImage(imageFile);
+        } else {
+          console.warn("Could not load original image as file for re-submission.");
+        }
+      }
+
+      if (task.original_last_frame_path) { 
+        const lastImageUrl = `${BACKEND_URL}${task.original_last_frame_path}`;
+        setLastImagePreview(lastImageUrl); 
+        const lastImageFile = await urlToImageFile(lastImageUrl, task.original_last_frame_path.split('/').pop()); 
+        if (lastImageFile) {
+          setSelectedLastImage(lastImageFile);
+        } else {
+          console.warn("Could not load original last image as file for re-submission.");
+        }
       }
     }
-
-    if (task.original_last_frame_path) { // Corrected property name
-      const lastImageUrl = `${BACKEND_URL}${task.original_last_frame_path}`;
-      setLastImagePreview(lastImageUrl); // Set preview immediately
-      // Attempt to fetch the last image and set it as a File object
-      const lastImageFile = await urlToImageFile(lastImageUrl, task.original_last_frame_path.split('/').pop()); // Corrected property name
-      if (lastImageFile) {
-        setSelectedLastImage(lastImageFile);
-      } else {
-        console.warn("Could not load original last image as file for re-submission.");
-      }
-    }
-
-    // If the selected historical task is still processing, restart polling for it
-    // This is handled by the main useEffect for [taskId, taskStatus]
   };
 
   const handleDeleteTask = async (idToDelete) => {
@@ -788,7 +789,7 @@ function App() {
       return;
     }
 
-    setIsLoading(true); // Use isLoading to disable UI elements during deletion
+    setIsLoading(true); 
     try {
       const response = await fetch(`${BACKEND_URL}/task/${idToDelete}`, {
         method: 'DELETE',
@@ -797,8 +798,8 @@ function App() {
         const errorData = await response.json();
         throw new Error(errorData.error || `Failed to delete task: ${response.statusText}`);
       }
-      // If the deleted task is the currently viewed task, clear the view
-      if (taskId === idToDelete) {
+      
+      if (taskId === idToDelete && activeView === 'dream') { // If deleted task was the one in dream view
         setPrompt('');
         setModel('veo-2.0-generate-001');
         setRatio('16:9');
@@ -809,13 +810,21 @@ function App() {
         setTaskStatus('');
         setVideoGcsUri('');
         setErrorMessage('');
-        setSelectedImage(null); // Clear selected image
-        setImagePreview('');   // Clear image preview
-        setSelectedLastImage(null); // Clear selected last image
-        setLastImagePreview(''); // Clear last image preview
+        setSelectedImage(null); 
+        setImagePreview('');   
+        setSelectedLastImage(null); 
+        setLastImagePreview(''); 
       }
-      fetchHistoryTasks(); // Refresh history
-      alert(t('taskDeletedSuccessMessage')); // Or use a more sophisticated notification
+      // Remove from create mode clips if present
+      const clipWasSelected = createModeClips.find(clip => clip.trackInstanceId === selectedClipInTrack && clip.task_id === idToDelete);
+      setCreateModeClips(prevClips => prevClips.filter(clip => clip.task_id !== idToDelete));
+      if (clipWasSelected) {
+        setActiveCreateModeVideoSrc('');
+        setSelectedClipInTrack(null);
+      }
+
+      fetchHistoryTasks(); 
+      alert(t('taskDeletedSuccessMessage')); 
     } catch (error) {
       console.error('Error deleting task:', error);
       setErrorMessage(error.message || 'Failed to delete task.');
@@ -824,18 +833,46 @@ function App() {
     }
   };
 
+  const handleCreateVideoClick = async () => {
+    if (createModeClips.length === 0) {
+      setErrorMessage(t('errorNoClipsToCreateVideo')); // TODO: Add this translation key
+      return;
+    }
+    setIsCreatingVideo(true);
+    setErrorMessage('');
+    console.log("Initiating video creation with clips:", createModeClips);
+    // Placeholder for actual video creation logic
+    // This would likely involve sending clip data to the backend
+    // and then polling for the status of the combined video.
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Assume success for now, set up for a new task ID and status polling
+      // setTaskId(newCombinedVideoTaskId);
+      // setTaskStatus(STATUS_PENDING);
+      // fetchHistoryTasks(); // Refresh history
+      alert(t('createVideoInitiatedMessage')); // TODO: Add this translation key
+    } catch (error) {
+      console.error('Error creating video:', error);
+      setErrorMessage(error.message || 'Failed to create video.');
+      // setTaskStatus(STATUS_ERROR);
+    } finally {
+      setIsCreatingVideo(false);
+    }
+  };
+
   const handleRefinePrompt = async (promptToRefine, buttonKey = null) => {
-    const currentPromptValue = promptToRefine || prompt; // Use passed prompt or state
+    const currentPromptValue = promptToRefine || prompt;
 
     if (!currentPromptValue.trim() || isRefining) {
-      if (!currentPromptValue.trim() && !promptToRefine) { // Only set error if not called with a specific prompt that might be empty
+      if (!currentPromptValue.trim() && !promptToRefine) { 
         setErrorMessage(t('refinePromptEmptyError'));
       }
       return;
     }
     setIsRefining(true);
     if (buttonKey) setActiveSpinnerButtonKey(buttonKey);
-    setErrorMessage(''); // Clear previous errors
+    setErrorMessage(''); 
 
     try {
       const response = await fetch(`${BACKEND_URL}/refine-prompt`, {
@@ -850,15 +887,11 @@ function App() {
         throw new Error(data.error || `Failed to refine prompt: ${response.statusText}`);
       }
       if (data.refined_prompt) {
-        setPrompt(data.refined_prompt); // Update the main prompt state with the refined one
+        setPrompt(data.refined_prompt); 
       } else {
-        // If the backend didn't return a refined_prompt but was successful,
-        // it might mean the original prompt (currentPromptValue) was considered good enough
-        // or an empty string was returned. In this case, we ensure the UI reflects currentPromptValue if it was passed.
         if (promptToRefine && promptToRefine !== prompt) {
             setPrompt(promptToRefine);
         } else if (!data.refined_prompt) {
-          // If no refined prompt and no promptToRefine, it implies an issue or empty refinement
           console.warn("Refined prompt not found in response, and no override prompt provided.");
         }
       }
@@ -877,10 +910,9 @@ function App() {
 
   const handleKeywordButtonClick = async (keywordToAdd) => {
     const basePrompt = prompt.trim();
-    // Add a space only if basePrompt is not empty
     const newPrompt = basePrompt ? `${basePrompt} ${keywordToAdd}` : keywordToAdd;
-    setPrompt(newPrompt); // Update UI prompt immediately
-    await handleRefinePrompt(newPrompt, keywordToAdd); // Pass the new prompt and keyword as buttonKey
+    setPrompt(newPrompt); 
+    await handleRefinePrompt(newPrompt, keywordToAdd); 
   };
 
   const handleExtendVideoClick = async (taskIdToExtend) => {
@@ -889,10 +921,7 @@ function App() {
     }
     setIsExtending(true);
     setErrorMessage('');
-    // Optionally, clear current task view or set a specific status for extension
-    // setTaskStatus('Extending...'); // Or similar
-
-    // Stop any ongoing polling for the current task if it's different
+    
     if (pollingIntervalId && taskId !== taskIdToExtend) {
       clearInterval(pollingIntervalId);
       setPollingIntervalId(null);
@@ -900,27 +929,23 @@ function App() {
 
     try {
       const payload = new FormData();
-      // We can allow overriding prompt/duration for extension if needed
-      // For now, the backend uses original prompt and a default duration
-      // payload.append('prompt', prompt); // If we want to use current UI prompt
-      // payload.append('duration', parseInt(duration, 10)); // If we want to use current UI duration
-
       const response = await fetch(`${BACKEND_URL}/extend-video/${taskIdToExtend}`, {
         method: 'POST',
-        body: payload, // FormData for consistency, even if empty for now
+        body: payload, 
       });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || `Failed to start video extension: ${response.statusText}`);
       }
-      // Set the new task ID and status to start polling for the extended video
-      setTaskId(data.task_id);
-      setTaskStatus(STATUS_PENDING); // Start polling for the new extension task
-      fetchHistoryTasks(); // Refresh history to show the new task
+      
+      setTaskId(data.task_id); // Switch dream view to the new extension task
+      setActiveView('dream'); // Ensure we are in dream view to see the new task
+      setTaskStatus(STATUS_PENDING); 
+      fetchHistoryTasks(); 
     } catch (error) {
       console.error('Error starting video extension:', error);
       setErrorMessage(error.message || 'Failed to start video extension.');
-      setTaskStatus(STATUS_ERROR); // Or some other appropriate error status
+      setTaskStatus(STATUS_ERROR); 
     } finally {
       setIsExtending(false);
     }
@@ -939,7 +964,6 @@ function App() {
     <>
       {!isBackendReady ? (
         <div className={`vh-100 d-flex flex-column justify-content-center align-items-center ${theme === 'dark' ? 'bg-dark text-light' : 'bg-light text-dark'}`}>
-          {/* Always show loading spinner and message while backend is not ready */}
           <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
             <span className="visually-hidden">{t('loading')}</span>
           </div>
@@ -947,17 +971,8 @@ function App() {
           <p className={`${theme === 'dark' ? 'text-light' : 'text-muted'}`}>{t('connectingToBackendMessage')}</p>
         </div>
       ) : (
-        <div className={`App d-flex flex-column vh-100 ${theme === 'dark' ? 'bg-dark text-light' : ''}`}> {/* vh-100 for 100% viewport height, apply theme class */}
-          <div className="app-body d-flex flex-grow-1"> {/* Added app-body class, removed inline overflow:hidden */}
-            {/* Sidebar (Inputs) */}
-        <div className={`sidebar p-3 border-end ${theme === 'dark' ? 'bg-dark text-light' : 'bg-light text-dark'}`}> {/* Removed inline styles, relying on .sidebar class from App.css */}
-          <header className="mb-3" style={{ background: 'linear-gradient(to right, black, #b8485f)', borderRadius: '0.375rem', padding: '1rem', color: 'white' }}> {/* Added padding and border-radius manually, set text color to white */}
-            <div className="container-fluid p-0"> {/* Removed container-fluid padding */}
-              <h1 className="h3 mb-0" style={{ color: 'white' }}><i className="bi bi-film me-2"></i>{t('appTitle')}</h1>
-              <p className="mb-0" style={{ fontSize: '0.8rem', opacity: 0.7, color: 'white' }}>{t('poweredBy')}</p>
-            </div>
-          </header>
-          <div className="d-flex justify-content-between align-items-center my-3">
+        <div className={`App d-flex flex-column vh-100 ${theme === 'dark' ? 'bg-dark text-light' : ''}`}>
+          <div className={`top-toolbar ${theme === 'dark' ? 'bg-dark text-light' : 'bg-light text-dark'}`}>
             {userEmail && (
               <div className="dropdown" ref={userDropdownRef}>
                 <button
@@ -967,72 +982,79 @@ function App() {
                   aria-expanded={showUserDropdown}
                   title={t('userInfoTitle')}
                 >
-                  <i className="bi bi-person-circle" style={{ fontSize: '1.5rem' }}></i>
+                  <i className="bi bi-person-circle"></i>
                 </button>
                 {showUserDropdown && (
-                  <ul className={`dropdown-menu show ${theme === 'dark' ? 'dropdown-menu-dark' : ''}`} style={{position: 'absolute', inset: '0px auto auto 0px', margin: '0px', transform: 'translate(0px, 40px)', minWidth: '250px'}}>
+                  <ul className={`dropdown-menu dropdown-menu-end show ${theme === 'dark' ? 'dropdown-menu-dark' : ''}`} style={{position: 'absolute', inset: '0px 0px auto auto', margin: '0px', transform: 'translate(0px, 30px)', minWidth: '250px'}}>
                     <li><span className="dropdown-item-text">{userEmail}</span></li>
                   </ul>
                 )}
               </div>
             )}
-            {/* If no user email, add an empty div to maintain space-between for the right-aligned group */}
-            {!userEmail && <div />} 
-            
-            <div className="d-flex align-items-center"> {/* Group for theme switch and language chooser */}
-              <div className="form-check form-switch me-3"> {/* Added margin to the right of theme switch */}
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  role="switch"
-                  id="themeSwitch"
-                  checked={theme === 'dark'}
-                  onChange={toggleTheme}
-                />
-                <label className="form-check-label" htmlFor="themeSwitch">
-                  {theme === 'dark' ? <i className="bi bi-moon-stars-fill"></i> : <i className="bi bi-sun-fill"></i>}
-                </label>
-              </div>
-              {/* Language Switcher (moved here) */}
-              <div className="dropdown"> {/* Removed my-3 as parent div handles vertical margin */}
-                <button
-                  className={`btn btn-outline-secondary dropdown-toggle ${theme === 'dark' ? 'text-light' : ''}`}
-                  type="button"
-                  id="languageDropdownButton"
-                  data-bs-toggle="dropdown"
-                  aria-expanded="false"
-                >
-                  {i18n.language === 'es' ? '🇪🇸 Español' : (i18n.language === 'zh-CN' ? '🇨🇳 简体中文' : (i18n.language === 'ja' ? '🇯🇵 日本語' : '🇺🇸 English'))}
-                </button>
-                <ul className={`dropdown-menu ${theme === 'dark' ? 'dropdown-menu-dark' : ''}`} aria-labelledby="languageDropdownButton">
-                  <li>
-                    <button className="dropdown-item" type="button" onClick={() => changeLanguage('en')}>
-                      🇺🇸 English
-                    </button>
-                  </li>
-                  <li>
-                    <button className="dropdown-item" type="button" onClick={() => changeLanguage('es')}>
-                      🇪🇸 Español
-                    </button>
-                  </li>
-                  <li>
-                    <button className="dropdown-item" type="button" onClick={() => changeLanguage('zh-CN')}>
-                      🇨🇳 简体中文
-                    </button>
-                  </li>
-                  <li>
-                    <button className="dropdown-item" type="button" onClick={() => changeLanguage('ja')}>
-                      🇯🇵 日本語
-                    </button>
-                  </li>
-                </ul>
-              </div>
+            <div className="form-check form-switch">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="themeSwitchToolbar"
+                checked={theme === 'dark'}
+                onChange={toggleTheme}
+              />
+              <label className="form-check-label" htmlFor="themeSwitchToolbar">
+                {theme === 'dark' ? <i className="bi bi-moon-stars-fill"></i> : <i className="bi bi-sun-fill"></i>}
+              </label>
+            </div>
+            <div className="dropdown">
+              <button
+                className={`btn btn-outline-secondary dropdown-toggle ${theme === 'dark' ? 'text-light border-secondary' : ''}`}
+                type="button"
+                id="languageDropdownButtonToolbar"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+              >
+                {i18n.language === 'es' ? '🇪🇸' : (i18n.language === 'zh-CN' ? '🇨🇳' : (i18n.language === 'ja' ? '🇯🇵' : '🇺🇸'))}
+              </button>
+              <ul className={`dropdown-menu dropdown-menu-end ${theme === 'dark' ? 'dropdown-menu-dark' : ''}`} aria-labelledby="languageDropdownButtonToolbar">
+                <li><button className="dropdown-item" type="button" onClick={() => changeLanguage('en')}>🇺🇸 English</button></li>
+                <li><button className="dropdown-item" type="button" onClick={() => changeLanguage('es')}>🇪🇸 Español</button></li>
+                <li><button className="dropdown-item" type="button" onClick={() => changeLanguage('zh-CN')}>🇨🇳 简体中文</button></li>
+                <li><button className="dropdown-item" type="button" onClick={() => changeLanguage('ja')}>🇯🇵 日本語</button></li>
+              </ul>
             </div>
           </div>
-          {/* Content from original "Input Column" */}
-          <div className="card"> {/* Rely on data-bs-theme for dark mode card styling */}
-            <div className="card-body">
-              {/* Prompt Section */}
+
+          <div className="app-body d-flex flex-grow-1"> 
+            <div className={`sidebar p-3 border-end ${theme === 'dark' ? 'bg-dark text-light' : 'bg-light text-dark'}`}>
+              <header className="mb-3" style={{ background: 'linear-gradient(to right, black, #b8485f)', borderRadius: '0.375rem', padding: '1rem', color: 'white' }}>
+                <div className="container-fluid p-0">
+                  <h1 className="h3 mb-0" style={{ color: 'white' }}><i className="bi bi-film me-2"></i>{t('appTitle')}</h1>
+                  <p className="mb-0" style={{ fontSize: '0.8rem', opacity: 0.7, color: 'white' }}>{t('poweredBy')}</p>
+                </div>
+              </header>
+              <div className="d-flex justify-content-center"> 
+            <div className="custom-pill-toggle-group mb-3">
+              <button
+                className={`custom-pill-toggle-btn ${activeView === 'dream' ? 'active' : ''}`}
+              onClick={() => setActiveView('dream')}
+              type="button"
+            >
+              <i className="bi bi-cloud"></i>
+              {t('dreamView')}
+            </button>
+            <button
+              className={`custom-pill-toggle-btn ${activeView === 'create' ? 'active' : ''}`}
+              onClick={() => setActiveView('create')}
+              type="button"
+            >
+              <i className="bi bi-pencil-square"></i>
+              {t('createView')}
+            </button>
+            </div>
+          </div>
+
+          {activeView === 'dream' && (
+            <div className="card"> 
+              <div className="card-body">
               <h3 className={`card-title h6 mb-2 ${theme === 'dark' ? 'text-light' : 'text-muted'}`}><i className="bi bi-chat-dots me-2"></i>{t('promptLabel')}</h3>
               <div className="mb-3">
                 <textarea
@@ -1043,7 +1065,6 @@ function App() {
                   onChange={handlePromptChange}
                   disabled={isLoading || isRefining}
                 ></textarea>
-                {/* Action Buttons: Refine and Keywords */}
                 <div className="mt-2 d-flex flex-wrap">
                   {promptActionButtons.map((btn, index) => (
                     <button
@@ -1064,7 +1085,6 @@ function App() {
                 </div>
               </div>
 
-              {/* Image Upload Tabs Section */}
               <div className="mt-3">
                 <ul className="nav nav-tabs nav-fill mb-3">
                   <li className="nav-item">
@@ -1090,14 +1110,12 @@ function App() {
                 </ul>
 
                 <div className="tab-content">
-                  {/* First Frame Image Tab Pane */}
                   <div className={`tab-pane fade ${activeImageTab === 'first' ? 'show active' : ''}`} id="firstFrameTab">
-                    {/* <h3 className={`card-title h6 mb-2 ${theme === 'dark' ? 'text-light' : 'text-muted'}`}><i className="bi bi-image me-2"></i>First Frame Image (Optional)</h3> */}
                     <div
                       ref={imagePreviewRef}
                       className="mb-3 text-center border rounded p-3"
                       style={{ minHeight: '170px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}
-                      tabIndex={0} // Make it focusable to receive paste events
+                      tabIndex={0} 
                       title={t('pasteImageTooltip')}
                     >
                       {imagePreview ? (
@@ -1136,7 +1154,6 @@ function App() {
                         </div>
                       )}
                     </div>
-                    {/* Hidden file input, triggered by the upload icon */}
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -1149,13 +1166,12 @@ function App() {
                     />
                   </div>
 
-                  {/* Last Frame Image Tab Pane */}
                   <div className={`tab-pane fade ${activeImageTab === 'last' ? 'show active' : ''}`} id="lastFrameTab">
                     <div
                       ref={lastImagePreviewRef}
                       className="mb-3 text-center border rounded p-3"
                       style={{ minHeight: '170px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}
-                      tabIndex={0} // Make it focusable to receive paste events
+                      tabIndex={0} 
                       title={t('pasteImageTooltip')}
                     >
                       {lastImagePreview ? (
@@ -1196,7 +1212,6 @@ function App() {
                         </div>
                       )}
                     </div>
-                    {/* Hidden file input, triggered by the upload icon */}
                     <input
                       ref={lastFileInputRef}
                       type="file"
@@ -1216,9 +1231,6 @@ function App() {
                 </div>
               </div>
 
-              {/* Settings Section */}
-              {/* <h3 className={`card-title h6 mb-2 mt-4 ${theme === 'dark' ? 'text-light' : 'text-muted'}`}><i className="bi bi-gear me-2"></i></h3> */}
-              {/* Model Dropdown */}
               <div className="mb-3">
                 <label htmlFor="modelSelect" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-box me-2"></i>{t('modelLabel')}</label>
                 <select
@@ -1234,7 +1246,6 @@ function App() {
                 </select>
               </div>
 
-              {/* Ratio Dropdown */}
               <div className="mb-3">
                 <label htmlFor="ratioSelect" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-aspect-ratio me-2"></i>{t('aspectRatioLabel')}</label>
                 <select
@@ -1254,7 +1265,6 @@ function App() {
                 )}
               </div>
 
-              {/* Camera Control Dropdown */}
               <div className="mb-3">
                 <label htmlFor="cameraControlSelect" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-camera-video me-2"></i>{t('cameraControlLabel')}</label>
                 <select
@@ -1278,7 +1288,6 @@ function App() {
                 </select>
               </div>
 
-              {/* Video Duration Dropdown */}
               <div className="mb-3">
                 <label htmlFor="durationSelect" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-clock me-2"></i>{t('videoDurationLabel')}</label>
                 <select
@@ -1297,7 +1306,6 @@ function App() {
                 </select>
               </div>
 
-              {/* GCS Output Bucket Input - Temporarily hidden */}
               <div className="mb-3" style={{ display: 'none' }}>
                 <label htmlFor="gcsOutputBucket" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-bucket me-2"></i>{t('gcsOutputBucketLabel')}</label>
                 <input
@@ -1311,7 +1319,6 @@ function App() {
                 />
               </div>
 
-              {/* The Video Height Slider has been moved to the main content area, under the video player. */}
               <button
                 className="btn btn-primary w-100 mt-4"
                 onClick={handleGenerateClick}
@@ -1321,124 +1328,216 @@ function App() {
               </button>
             </div>
           </div>
-        </div>
+          )}
 
-        {/* Main Content (Video) */}
-        <main className={`main-content-area flex-grow-1 p-4 ${theme === 'dark' ? 'bg-dark text-light' : ''}`}>
-          {/* Video Column - No longer needs Bootstrap row/col for simple single column */}
-          <div>
-            <div ref={videoContainerRef} className="card video-display-card"> {/* Added ref and a class for potential styling */}
-              <div className="card-body" style={{ height: `${videoHeight}px`, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-                {
-                  (taskStatus === STATUS_PROCESSING || taskStatus === STATUS_INITIALIZING || taskStatus === STATUS_PENDING || taskStatus === STATUS_COMPLETED_WAITING_URI) ? (
-                    <div className="flashlight-loader w-100 h-100"> {/* Ensure loader fills the card-body */}
-                      <p>{taskStatus === STATUS_COMPLETED_WAITING_URI ? t(STATUS_COMPLETED_WAITING_URI + 'Status') : t('processingMessage')}</p>
-                    </div>
-                  ) : (taskStatus === STATUS_FAILED || taskStatus === STATUS_ERROR) ? (
-                    <div className="d-flex flex-column justify-content-center align-items-center w-100 h-100">
-                      <img src="/fail.png" alt={t('failedAltText')} style={{ width: '100px', height: '100px', marginBottom: '10px' }} />
-                      <p >{errorMessage || t('errorMessageGeneric')}</p> {/* Show specific error if available */}
-                    </div>
-                  ) : taskStatus === STATUS_COMPLETED ? (
-                    videoGcsUri ? ( // Completed and URI exists
-                      <video key={videoGcsUri} ref={videoRef} controls autoPlay loop src={videoGcsUri} className="w-100" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', backgroundColor: theme === 'dark' ? '#343a40' : '#000000' }}>
-                        {t('videoTagNotSupported')}
-                      </video>
-                    ) : ( // Completed but NO URI (should be rare if STATUS_COMPLETED_WAITING_URI is handled)
-                      <div className={`${theme === 'dark' ? 'bg-secondary' : 'bg-light'} border rounded d-flex align-items-center justify-content-center w-100 h-100`}>
-                        <p className="text-danger">{errorMessage || t('videoDataUnavailable')}</p>
-                      </div>
-                    )
-                  ) : isLoading || isRefining ? ( // Generic spinner if still loading but not yet processing/failed/completed
-                    <div className="d-flex justify-content-center align-items-center w-100 h-100">
-                      <div className={`spinner-border ${theme === 'dark' ? 'text-light' : 'text-primary'}`} role="status">
-                        <span className="visually-hidden">{t('loading')}</span>
-                      </div>
-                    </div>
-                  ) : ( // Default placeholder
-                    <div className={`${theme === 'dark' ? 'bg-secondary' : 'bg-light'} border rounded d-flex flex-column align-items-center justify-content-center w-100 h-100`}>
-                      <img src="/dream.png" alt={t('startDreamingAltText')} style={{ width: '150px', height: '150px', opacity: 0.7 }} />
-                    </div>
-                  )
-                }
-              </div>
-              {/* Drag Handle for Resizing Video Area Height */}
-              <div
-                className="video-resize-handle"
-                onMouseDown={handleMouseDownResize}
-                title={t('resizeVideoAreaTooltip', {height: videoHeight})}
-              >
-                <i className="bi bi-grip-horizontal"></i> {/* Example icon, can be styled */}
+          {activeView === 'create' && (
+            <div className="card">
+              <div className="card-body text-center">
+                {/* <h3 className={`card-title h6 mb-2 ${theme === 'dark' ? 'text-light' : 'text-muted'}`}>
+                  <i className="bi bi-pencil-square me-2"></i>{t('createContentTitle')}
+                </h3> */}
+                {createModeClips.length > 0 && (
+                  <button
+                    className={`btn btn-primary btn-lg mt-2`} // Changed class for primary action
+                    onClick={handleCreateVideoClick}
+                    disabled={isCreatingVideo || createModeClips.length === 0}
+                  >
+                    {isCreatingVideo ? (
+                      <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>{t('creatingVideoButtonInProgress')}</> // TODO: Add this translation key
+                    ) : (
+                      <><i className="bi bi-film me-2"></i>{t('createVideoButton')}</> // New translation key
+                    )}
+                  </button>
+                )}
               </div>
             </div>
+          )}
+        </div>
 
-            {/* Task Information Box - Remains below the video card */}
-            {taskId && (
-              <div className="card mt-3"> {/* Rely on data-bs-theme for dark mode card styling */}
-                <div className="card-body">
-                  <h5 className="card-title"><i className="bi bi-info-circle me-2"></i>{t('taskDetailTitle')}</h5>
-                  <p className="card-text mb-1"><strong><i className="bi bi-fingerprint me-2"></i>{t('taskIDLabel')}</strong> <small>{taskId}</small></p>
-                  {currentTask && currentTask.prompt && (
-                    <p className="card-text mb-1" style={{ wordBreak: 'break-all' }}><strong><i className="bi bi-blockquote-left me-2"></i>{t('taskPromptLabelFull')}</strong> {currentTask.prompt}</p>
-                  )}
-                  {currentTask && typeof currentTask.created_at !== 'undefined' && (
-                    <p className="card-text mb-1">
-                      <strong><i className="bi bi-clock me-2"></i>{t('taskTimeLabel')}</strong>{' '}
-                      {new Date(currentTask.created_at * 1000).toLocaleDateString()}{' '}
-                      {new Date(currentTask.created_at * 1000).toLocaleTimeString()}
-                    </p>
-                  )}
-                  <p className="card-text"><strong><i className="bi bi-activity me-2"></i>{t('taskStatusLabel')}</strong> {taskStatus ? t(taskStatus + 'Status') : ''}</p>
-                  {taskStatus === STATUS_COMPLETED && videoGcsUri && (
-                    <>
+        <main className={`main-content-area flex-grow-1 p-4 ${theme === 'dark' ? 'bg-dark text-light' : ''}`}>
+          {activeView === 'dream' && (
+            <div> 
+              <div ref={videoContainerRef} className="card video-display-card">
+                <div className="card-body" style={{ height: `${videoHeight}px`, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                  {
+                    (taskStatus === STATUS_PROCESSING || taskStatus === STATUS_INITIALIZING || taskStatus === STATUS_PENDING || taskStatus === STATUS_COMPLETED_WAITING_URI) ? (
+                      <div className="flashlight-loader w-100 h-100">
+                        <p>{taskStatus === STATUS_COMPLETED_WAITING_URI ? t(STATUS_COMPLETED_WAITING_URI + 'Status') : t('processingMessage')}</p>
+                      </div>
+                    ) : (taskStatus === STATUS_FAILED || taskStatus === STATUS_ERROR) ? (
+                      <div className="d-flex flex-column justify-content-center align-items-center w-100 h-100">
+                        <img src="/fail.png" alt={t('failedAltText')} style={{ width: '100px', height: '100px', marginBottom: '10px' }} />
+                        <p >{errorMessage || t('errorMessageGeneric')}</p>
+                      </div>
+                    ) : taskStatus === STATUS_COMPLETED ? (
+                      videoGcsUri ? (
+                        <video key={videoGcsUri} ref={videoRef} controls autoPlay loop src={videoGcsUri} className="w-100" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', backgroundColor: theme === 'dark' ? '#343a40' : '#000000' }}>
+                          {t('videoTagNotSupported')}
+                        </video>
+                      ) : (
+                        <div className={`${theme === 'dark' ? 'bg-secondary' : 'bg-light'} border rounded d-flex align-items-center justify-content-center w-100 h-100`}>
+                          <p className="text-danger">{errorMessage || t('videoDataUnavailable')}</p>
+                        </div>
+                      )
+                    ) : isLoading || isRefining ? (
+                      <div className="d-flex justify-content-center align-items-center w-100 h-100">
+                        <div className={`spinner-border ${theme === 'dark' ? 'text-light' : 'text-primary'}`} role="status">
+                          <span className="visually-hidden">{t('loading')}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`${theme === 'dark' ? 'bg-secondary' : 'bg-light'} border rounded d-flex flex-column align-items-center justify-content-center w-100 h-100`}>
+                        <img src="/dream.png" alt={t('startDreamingAltText')} style={{ width: '150px', height: '150px', opacity: 0.7 }} />
+                      </div>
+                    )
+                  }
+                </div>
+                <div
+                  className="video-resize-handle"
+                  onMouseDown={handleMouseDownResize}
+                  title={t('resizeVideoAreaTooltip', {height: videoHeight})}
+                >
+                  <i className="bi bi-grip-horizontal"></i>
+                </div>
+              </div>
+              {taskId && activeView === 'dream' && ( 
+                <div className="card mt-3">
+                  <div className="card-body">
+                    <h5 className="card-title"><i className="bi bi-info-circle me-2"></i>{t('taskDetailTitle')}</h5>
+                    <p className="card-text mb-1"><strong><i className="bi bi-fingerprint me-2"></i>{t('taskIDLabel')}</strong> <small>{taskId}</small></p>
+                    {currentTask && currentTask.prompt && (
+                      <p className="card-text mb-1" style={{ wordBreak: 'break-all' }}><strong><i className="bi bi-blockquote-left me-2"></i>{t('taskPromptLabelFull')}</strong> {currentTask.prompt}</p>
+                    )}
+                    {currentTask && typeof currentTask.created_at !== 'undefined' && (
                       <p className="card-text mb-1">
-                        <strong><i className="bi bi-link-45deg me-2"></i>{t('taskDownloadUrlLabel')}</strong> <a href={videoGcsUri} target="_blank" rel="noopener noreferrer" style={{ wordBreak: 'break-all' }}>{videoGcsUri}</a>
+                        <strong><i className="bi bi-clock me-2"></i>{t('taskTimeLabel')}</strong>{' '}
+                        {new Date(currentTask.created_at * 1000).toLocaleDateString()}{' '}
+                        {new Date(currentTask.created_at * 1000).toLocaleTimeString()}
                       </p>
-                      {currentTask && currentTask.video_gcs_uri && ( // Check if currentTask and its video_gcs_uri exist
-                        <p className="card-text mb-1" style={{ wordBreak: 'break-all' }}>
-                          <strong><i className="bi bi-cloud-arrow-down me-2"></i>{t('taskGcsVideoUriLabel')}</strong> {currentTask.video_gcs_uri}
+                    )}
+                    <p className="card-text"><strong><i className="bi bi-activity me-2"></i>{t('taskStatusLabel')}</strong> {taskStatus ? t(taskStatus + 'Status') : ''}</p>
+                    {taskStatus === STATUS_COMPLETED && videoGcsUri && (
+                      <>
+                        <p className="card-text mb-1">
+                          <strong><i className="bi bi-link-45deg me-2"></i>{t('taskDownloadUrlLabel')}</strong> <a href={videoGcsUri} target="_blank" rel="noopener noreferrer" style={{ wordBreak: 'break-all' }}>{videoGcsUri}</a>
                         </p>
-                      )}
-                    </>
-                  )}
-                  {errorMessage && taskStatus !== STATUS_COMPLETED && <p className="card-text text-danger mb-2"><strong><i className="bi bi-exclamation-triangle me-2"></i>{t('taskErrorLabel')}</strong> {errorMessage}</p>}
-                  {(taskStatus === STATUS_PROCESSING || taskStatus === STATUS_COMPLETED || taskStatus === STATUS_FAILED || taskStatus === STATUS_ERROR) && (
-                    <div>
-                      <button
-                        className="btn btn-danger btn-sm mt-2 me-2"
-                        onClick={() => handleDeleteTask(taskId)}
-                        disabled={isLoading} // Disable if another operation is in progress
-                        title={t('deleteTaskButtonTitle')}
-                      >
-                        <i className="bi bi-trash3"></i>
-                      </button>
-                      {taskStatus === STATUS_COMPLETED && videoGcsUri && ( // Only show extend if task is complete and has a video
+                        {currentTask && currentTask.video_gcs_uri && ( 
+                          <p className="card-text mb-1" style={{ wordBreak: 'break-all' }}>
+                            <strong><i className="bi bi-cloud-arrow-down me-2"></i>{t('taskGcsVideoUriLabel')}</strong> {currentTask.video_gcs_uri}
+                          </p>
+                        )}
+                      </>
+                    )}
+                    {errorMessage && taskStatus !== STATUS_COMPLETED && <p className="card-text text-danger mb-2"><strong><i className="bi bi-exclamation-triangle me-2"></i>{t('taskErrorLabel')}</strong> {errorMessage}</p>}
+                    {(taskStatus === STATUS_PROCESSING || taskStatus === STATUS_COMPLETED || taskStatus === STATUS_FAILED || taskStatus === STATUS_ERROR) && (
+                      <div>
                         <button
-                          className="btn btn-info btn-sm mt-2"
-                          onClick={() => handleExtendVideoClick(taskId)}
-                          disabled={isLoading || isExtending || !currentTask || !currentTask.video_gcs_uri}
-                          title={t('extendVideoButtonTitle')}
+                          className="btn btn-danger btn-sm mt-2 me-2"
+                          onClick={() => handleDeleteTask(taskId)}
+                          disabled={isLoading} 
+                          title={t('deleteTaskButtonTitle')}
                         >
-                          {isExtending && taskId === currentTask?.task_id ? (
-                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                          ) : (
-                            <i className="bi bi-clock-history"></i>
-                          )}
+                          <i className="bi bi-trash3"></i>
                         </button>
-                      )}
+                        {taskStatus === STATUS_COMPLETED && videoGcsUri && ( 
+                          <button
+                            className="btn btn-info btn-sm mt-2"
+                            onClick={() => handleExtendVideoClick(taskId)}
+                            disabled={isLoading || isExtending || !currentTask || !currentTask.video_gcs_uri}
+                            title={t('extendVideoButtonTitle')}
+                          >
+                            {isExtending && taskId === currentTask?.task_id ? (
+                              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            ) : (
+                              <i className="bi bi-clock-history"></i>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeView === 'create' && (
+            <div className="d-flex flex-column h-100"> 
+              <div className="card video-display-card flex-grow-1"> 
+                <div className="card-body d-flex justify-content-center align-items-center" style={{ overflow: 'hidden',  height: `${videoHeight}px` }}>
+                  {activeCreateModeVideoSrc ? (
+                    <video key={activeCreateModeVideoSrc} ref={createModeVideoRef} controls autoPlay loop src={activeCreateModeVideoSrc} className="w-100" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', backgroundColor: theme === 'dark' ? '#212529' : '#f8f9fa' }}>
+                      {t('videoTagNotSupported')}
+                    </video>
+                  ) : (
+                    <div className={`${theme === 'dark' ? 'bg-secondary' : 'bg-light'} border rounded d-flex flex-column align-items-center justify-content-center w-100 h-100`}>
+                      <i className="bi bi-film" style={{fontSize: '3rem', opacity: 0.5}}></i>
+                      <p className="mt-2">{t('createVideoPlaceholder')}</p>
                     </div>
                   )}
                 </div>
+                 <div
+                  className="video-resize-handle"
+                  onMouseDown={handleMouseDownResize}
+                  title={t('resizeVideoAreaTooltip', {height: videoHeight})}
+                >
+                  <i className="bi bi-grip-horizontal"></i>
+                </div>
               </div>
-            )}
-          </div>
+              <div className={`video-clip-track card mt-2 ${theme === 'dark' ? 'bg-dark' : 'bg-light'}`}>
+                <div className="card-body d-flex p-2" style={{overflowX: 'auto'}}>
+                  {createModeClips.length === 0 && <p className={`m-0 ${theme === 'dark' ? 'text-light' : 'text-muted'}`}>{t('createClipTrackPlaceholder')}</p>}
+                  {createModeClips.map(clip => (
+                    <div 
+                      key={clip.trackInstanceId}
+                      className={`clip-thumbnail-item ${selectedClipInTrack === clip.trackInstanceId ? 'active' : ''}`}
+                      onClick={() => {
+                        if (clip.local_video_path) {
+                           setActiveCreateModeVideoSrc(`${BACKEND_URL}${clip.local_video_path}`);
+                           setSelectedClipInTrack(clip.trackInstanceId);
+                           if(createModeVideoRef.current) {
+                            createModeVideoRef.current.load();
+                            createModeVideoRef.current.play().catch(e => console.warn("Clip track play failed", e));
+                           }
+                        } else {
+                          // Attempt to find the original task data if needed, though newClipInstance should have it
+                          console.warn("Clicked clip instance has no video path:", clip);
+                        }
+                      }}
+                    >
+                      <button
+                        className="clip-delete-btn"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent triggering the thumbnail click
+                          setCreateModeClips(prevClips => prevClips.filter(c => c.trackInstanceId !== clip.trackInstanceId));
+                          if (selectedClipInTrack === clip.trackInstanceId) {
+                            setActiveCreateModeVideoSrc('');
+                            setSelectedClipInTrack(null);
+                          }
+                        }}
+                        title={t('removeClipFromTrackTitle')}
+                      >
+                        <i className="bi bi-x-lg"></i>
+                      </button>
+                      {clip.local_thumbnail_path ? (
+                        <img src={`${BACKEND_URL}${clip.local_thumbnail_path}`} alt={`Clip ${clip.task_id}`} />
+                      ) : (
+                        <div className="clip-thumbnail-placeholder">
+                          <i className="bi bi-film"></i>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </main>
 
-        {/* Right Sidebar (History) */}
-        <div className={`right-sidebar p-3 border-start ${theme === 'dark' ? 'bg-dark text-light' : 'bg-light text-dark'}`} style={{ display: 'flex', flexDirection: 'column' }}> {/* Ensure right-sidebar is also a flex column */}
-          <div className="card border-0 flex-grow-1"> {/* Allow card to grow and fill available space */}
-            <div className="card-body d-flex flex-column h-100"> {/* Make card-body a flex container and take full height */}
-              <h2 className="card-title h5 mb-3" onClick={fetchHistoryTasks} style={{ cursor: 'pointer' }} title={t('refreshHistoryTooltip')}><i className="bi bi-clock-history me-2"></i>{t('historyTitle')}</h2> {/* Added mb-3 for spacing */}
+        <div className={`right-sidebar p-3 border-start ${theme === 'dark' ? 'bg-dark text-light' : 'bg-light text-dark'}`} style={{ display: 'flex', flexDirection: 'column' }}> 
+          <div className="card border-0 flex-grow-1"> 
+            <div className="card-body d-flex flex-column h-100"> 
+              <h2 className="card-title h5 mb-3" onClick={fetchHistoryTasks} style={{ cursor: 'pointer' }} title={t('refreshHistoryTooltip')}><i className="bi bi-clock-history me-2"></i>{t('historyTitle')}</h2> 
               <div className="mb-3">
                 <input
                   type="text"
@@ -1449,35 +1548,67 @@ function App() {
                 />
               </div>
               {historyTasks.filter(task => task.prompt && task.prompt.toLowerCase().includes(historyFilter.toLowerCase())).length === 0 && <p className={`${theme === 'dark' ? 'text-light' : 'text-muted'}`}>{t('historyNoMatchingTasks')}</p>}
-              <ul className="list-group list-group-flush flex-grow-1" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 10px)' }}> {/* Adjusted maxHeight for filter input */}
+              <ul className="list-group list-group-flush flex-grow-1" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 10px)' }}> 
                 {historyTasks
                   .filter(task => task.prompt && task.prompt.toLowerCase().includes(historyFilter.toLowerCase()))
-                  .map((task) => (
+                  .map((task) => {
+                    // Check if this history task corresponds to the selected clip in create mode
+                    const isSelectedInCreateTrack = activeView === 'create' && 
+                                                  selectedClipInTrack && // Ensure selectedClipInTrack is not null
+                                                  createModeClips.some(clip => 
+                                                    clip.trackInstanceId === selectedClipInTrack && 
+                                                    clip.task_id === task.task_id
+                                                  );
+                    return (
                   <li
-                    key={task.task_id}
-                    className={`list-group-item-action d-flex flex-column align-items-center p-2 ${theme === 'dark' ? 'list-group-item-dark-no-border' : 'list-group-item-light-no-border'} ${task.task_id === taskId ? 'has-selected-thumbnail' : ''}`}
+                    key={task.task_id} // History list still uses task_id as key for source tasks
+                    className={`list-group-item-action d-flex flex-column align-items-center p-2 ${theme === 'dark' ? 'list-group-item-dark-no-border' : 'list-group-item-light-no-border'} ${task.task_id === taskId && activeView === 'dream' ? 'has-selected-thumbnail' : ''} ${isSelectedInCreateTrack ? 'has-selected-thumbnail' : ''}`}
                     style={{ cursor: 'pointer' }}
                     onClick={() => handleHistoryItemClick(task)}
+                    onMouseEnter={() => activeView === 'create' && setHoveredHistoryTaskId(task.task_id)}
+                    onMouseLeave={() => activeView === 'create' && setHoveredHistoryTaskId(null)}
                   >
                     {(task.status === STATUS_COMPLETED && task.local_thumbnail_path) ? (
-                      <div className={`thumbnail-container position-relative mb-2 ${task.task_id === taskId ? 'selected-thumbnail-custom-border' : ''}`}>
+                      <div className={`thumbnail-container position-relative mb-2 ${(task.task_id === taskId && activeView === 'dream') || isSelectedInCreateTrack ? 'selected-thumbnail-custom-border' : ''}`}>
                         <img
                           src={`${BACKEND_URL}${task.local_thumbnail_path}`}
                           alt={t('historyThumbnailAlt', {prompt: task.prompt})}
                           className="img-thumbnail"
                         />
                         <div className="play-icon-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center">
-                          <i className="bi bi-play-circle-fill text-white" style={{ fontSize: '2rem' }}></i>
+                          {activeView === 'create' ? (
+                            <>
+                              <i 
+                                className="bi bi-play-circle-fill text-white" 
+                                style={{ 
+                                  fontSize: '2rem', 
+                                  display: hoveredHistoryTaskId === task.task_id ? 'none' : 'inline-block' 
+                                }}
+                              ></i>
+                              <i 
+                                className="bi bi-plus-lg text-white" 
+                                style={{ 
+                                  fontSize: '2rem', 
+                                  display: hoveredHistoryTaskId === task.task_id ? 'inline-block' : 'none' 
+                                }}
+                              ></i>
+                            </>
+                          ) : (
+                            <i 
+                              className="bi bi-play-circle-fill text-white" 
+                              style={{ fontSize: '2rem' }}
+                            ></i>
+                          )}
                         </div>
                       </div>
-                    ) : (task.status === STATUS_PROCESSING || task.status === STATUS_PENDING || task.status === STATUS_INITIALIZING || task.status === STATUS_COMPLETED_WAITING_URI) ? ( // Added initializing and waiting_uri
+                    ) : (task.status === STATUS_PROCESSING || task.status === STATUS_PENDING || task.status === STATUS_INITIALIZING || task.status === STATUS_COMPLETED_WAITING_URI) ? ( 
                       <img
-                        src="/gears.gif" // Gears for all non-final, non-failed states
+                        src="/gears.gif" 
                         alt={t('historyProcessingAlt')}
                         className="img-thumbnail mb-2"
                         style={{ width: '80px', height: '80px' }}
                       />
-                    ) : task.status === STATUS_FAILED || task.status === STATUS_ERROR ? ( // Group failed and error
+                    ) : task.status === STATUS_FAILED || task.status === STATUS_ERROR ? ( 
                       <img
                         src="/fail.png"
                         alt={t('historyFailedAlt')}
@@ -1486,8 +1617,6 @@ function App() {
                       />
                     ) : null}
 
-                    {/* Display status badge for non-final states that are not 'completed' or 'failed/error' (which have icons) */}
-                    {/* task.status is canonical, t(task.status + 'Status') translates it for display */}
                     {task.status === STATUS_PROCESSING && (
                       <div><small className="badge bg-info">{t(STATUS_PROCESSING + 'Status')}</small></div>
                     )}
@@ -1501,7 +1630,8 @@ function App() {
                       <div><small className="badge bg-info">{t(STATUS_COMPLETED_WAITING_URI + 'Status')}</small></div>
                     )}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </div>
           </div>
@@ -1514,47 +1644,44 @@ function App() {
             </div>
           </footer>
 
-          {/* Image Preview Modal */}
           {showImageModal && (
             <div
               className="modal fade show"
               tabIndex="-1"
               style={{
-                display: 'flex', // Use flex to center
-                alignItems: 'center', // Vertical center
-                justifyContent: 'center', // Horizontal center
-                position: 'fixed', // Ensure it covers the whole screen
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                position: 'fixed', 
                 top: 0,
                 left: 0,
                 width: '100%',
                 height: '100%',
                 backgroundColor: 'rgba(0,0,0,0.5)',
-                zIndex: 1050 // Ensure it's above other content
+                zIndex: 1050 
               }}
               onClick={(e) => {
-                // Close modal only if backdrop is clicked, not content
                 if (e.target === e.currentTarget) {
                   setShowImageModal(false);
                 }
               }}
             >
-              <div className="modal-dialog modal-xl" style={{ margin: 0, display: 'flex', alignItems: 'center', minHeight: 'calc(100% - (1.75rem * 2))' }}> {/* Changed to modal-xl, Ensure dialog takes height for centering content */}
-                <div className="modal-content" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column', width: '100%' }}> {/* Increased maxHeight to 90vh, enable flex for body growth */}
-                  <div className="modal-body text-center" style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}> {/* Body grows and centers image */}
-                    {/* Ensure image itself doesn't prevent modal click-outside-to-close */}
+              <div className="modal-dialog modal-xl" style={{ margin: 0, display: 'flex', alignItems: 'center', minHeight: 'calc(100% - (1.75rem * 2))' }}> 
+                <div className="modal-content" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column', width: '100%' }}> 
+                  <div className="modal-body text-center" style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}> 
                     <img
                       src={modalImageUrl}
                       alt={t('imagePreviewModalAlt')}
                       style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
-                      onClick={(e) => e.stopPropagation()} // Prevent click on image from closing modal
+                      onClick={(e) => e.stopPropagation()} 
                     />
                     <button
                       type="button"
                       className="btn-close btn-close-white position-absolute top-0 end-0 m-3"
                       aria-label={t('closeButtonLabel')}
-                      style={{filter: 'invert(1) grayscale(100%) brightness(200%)', zIndex: 1051}} // Ensure close button is clickable
+                      style={{filter: 'invert(1) grayscale(100%) brightness(200%)', zIndex: 1051}} 
                       onClick={(e) => {
-                        e.stopPropagation(); // Prevent click on button from closing modal via backdrop click
+                        e.stopPropagation(); 
                         setShowImageModal(false);
                       }}
                     ></button>
