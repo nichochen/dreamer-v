@@ -97,5 +97,6 @@
   "creatingVideoButtonInProgress": "Creating Video...",
   "errorNoClipsToCreateVideo": "No clips in the track to create a video.",
   "createVideoInitiatedMessage": "Video creation initiated. Check history for progress.",
-  "timelineLabel": "Timeline"
+  "timelineLabel": "Timeline",
+  "errorMaxClipsReached": "Maximum {{maxClips}} clips allowed in the track."
 }

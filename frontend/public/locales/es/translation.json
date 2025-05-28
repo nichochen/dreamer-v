@@ -96,5 +96,6 @@
   "createVideoButton": "Crear Video",
   "creatingVideoButtonInProgress": "Creando Video...",
   "errorNoClipsToCreateVideo": "No hay clips en la pista para crear un video.",
-  "createVideoInitiatedMessage": "Creación de video iniciada. Revisa el historial para ver el progreso."
+  "createVideoInitiatedMessage": "Creación de video iniciada. Revisa el historial para ver el progreso.",
+  "errorMaxClipsReached": "Máximo {{maxClips}} clips permitidos en la pista."
 }

@@ -96,5 +96,6 @@
   "createVideoButton": "创建视频",
   "creatingVideoButtonInProgress": "正在创建视频...",
   "errorNoClipsToCreateVideo": "轨道中没有片段可用于创建视频。",
-  "createVideoInitiatedMessage": "视频创建已启动。请在历史记录中查看进度。"
+  "createVideoInitiatedMessage": "视频创建已启动。请在历史记录中查看进度。",
+  "errorMaxClipsReached": "轨道中最多允许 {{maxClips}} 个片段。"
 }

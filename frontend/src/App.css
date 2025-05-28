@@ -318,7 +318,7 @@ body {
   background-color: transparent; /* Default transparent background */
   border: none;
   color: #ffffff; /* Light gray for inactive text/icon */
-  padding: 4px 4px;
+  padding: 4px 12px; /* Increased horizontal padding */
   margin: 1px;
   border-radius: 16px; /* Rounded corners for buttons */
   cursor: pointer;
@@ -335,7 +335,7 @@ body {
 }
 
 .custom-pill-toggle-btn.active {
-  background-color: #0d6efd; /* Blue background for active button, similar to Bootstrap primary */
+  background-color: #808080; /* Grey background for active button */
   color: white; /* White text/icon for active button */
 }
 
@@ -355,12 +355,36 @@ body {
 }
 
 [data-bs-theme="light"] .custom-pill-toggle-btn.active {
-  background-color: #0d6efd; /* Bootstrap primary blue */
+  background-color: #808080; /* Grey background for active button in light theme */
   color: white;
 }
 
 [data-bs-theme="light"] .custom-pill-toggle-btn:not(.active):hover {
   background-color: #ced4da;
+
+/* Dark theme adjustments for pill toggle */
+[data-bs-theme="dark"] .custom-pill-toggle-group {
+  background-color: #343a40; /* Darker background for dark theme */
+  border: 1px solid #495057; /* Subtle border for definition */
+}
+
+[data-bs-theme="dark"] .custom-pill-toggle-btn {
+  color: #adb5bd; /* Lighter text for inactive in dark theme */
+  border-right: 1px solid #495057; /* Separator for buttons */
+}
+
+[data-bs-theme="dark"] .custom-pill-toggle-btn:last-child {
+  border-right: none; /* No border for the last button */
+}
+
+[data-bs-theme="dark"] .custom-pill-toggle-btn.active {
+  background-color: #808080; /* Grey background for active button in dark theme */
+  color: #fff; /* White text for active button in dark theme */
+}
+
+[data-bs-theme="dark"] .custom-pill-toggle-btn:not(.active):hover {
+  background-color: #495057; /* Darker hover for inactive in dark theme */
+}
   color: #212529;
 }
 

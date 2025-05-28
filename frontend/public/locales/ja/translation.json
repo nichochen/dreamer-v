@@ -96,5 +96,6 @@
   "createVideoButton": "ビデオを作成",
   "creatingVideoButtonInProgress": "ビデオを作成中...",
   "errorNoClipsToCreateVideo": "ビデオを作成するためのクリップがトラックにありません。",
-  "createVideoInitiatedMessage": "ビデオ作成が開始されました。進行状況は履歴で確認してください。"
+  "createVideoInitiatedMessage": "ビデオ作成が開始されました。進行状況は履歴で確認してください。",
+  "errorMaxClipsReached": "トラックに追加できるクリップは最大{{maxClips}}個です。"
 }

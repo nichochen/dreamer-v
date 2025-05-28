@@ -144,26 +144,34 @@ export const handleHistoryItemClick = async ({
   }
   setCompletedUriPollRetries(0);
 
-  if (activeView === 'create') {
-    // Only add completed tasks to the create mode track
-    if (task.status === STATUS_COMPLETED && task.local_video_path) {
-      const newTrackInstanceId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-      const newClipInstance = { ...task, trackInstanceId: newTrackInstanceId };
-      setCreateModeClips(prevClips => [...prevClips, newClipInstance]);
+    if (activeView === 'create') {
+      // Only add completed tasks to the create mode track
+      if (task.status === STATUS_COMPLETED && task.local_video_path) {
+        setCreateModeClips(prevClips => {
+          if (prevClips.length >= 8) {
+            // TODO: Consider providing user feedback via setErrorMessage or an alert
+            alert(t('errorMaxClipsReached', { maxClips: 8 })); // Assuming 'errorMaxClipsReached' will be added to translation files
+            // If max clips reached, do not add the new clip and return previous clips
+            return prevClips;
+          }
+          const newTrackInstanceId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+          const newClipInstance = { ...task, trackInstanceId: newTrackInstanceId };
 
-      // Set the active video source to the newly added clip
-      setActiveCreateModeVideoSrc(`${BACKEND_URL}${newClipInstance.local_video_path}`);
-      setSelectedClipInTrack(newTrackInstanceId);
-    } else {
-      // Optionally, provide feedback to the user that the task cannot be added
-      // For example, using setErrorMessage or an alert:
-      // setErrorMessage(t('errorCannotAddNonCompletedTaskToTrack')); 
-      // alert(t('errorCannotAddNonCompletedTaskToTrack'));
-      console.warn(`Task ${task.task_id} cannot be added to track because its status is '${task.status}' or it has no local video path.`);
-      // Do not proceed to set it as active or add to clips
-      return; 
-    }
-  } else { // Dream view
+          // Set the active video source to the newly added clip
+          setActiveCreateModeVideoSrc(`${BACKEND_URL}${newClipInstance.local_video_path}`);
+          setSelectedClipInTrack(newTrackInstanceId);
+          return [...prevClips, newClipInstance];
+        });
+      } else {
+        // Optionally, provide feedback to the user that the task cannot be added
+        // For example, using setErrorMessage or an alert:
+        // setErrorMessage(t('errorCannotAddNonCompletedTaskToTrack'));
+        // alert(t('errorCannotAddNonCompletedTaskToTrack'));
+        console.warn(`Task ${task.task_id} cannot be added to track because its status is '${task.status}' or it has no local video path.`);
+        // Do not proceed to set it as active or add to clips
+        return;
+      }
+    } else { // Dream view
     setPrompt(task.prompt);
     setModel(task.model || 'veo-2.0-generate-001');
     setRatio(task.aspect_ratio || '16:9');
