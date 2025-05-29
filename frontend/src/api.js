@@ -32,40 +32,154 @@ export const checkBackendHealth = async (setIsBackendReady, t) => {
   }
 };
 
-// Placeholder for music generation - replace with actual API call
-export const handleGenerateMusicClick = async (setIsGeneratingMusic, setErrorMessage, t) => {
-  setIsGeneratingMusic(true);
-  setErrorMessage('');
-  console.log("Generate Music button clicked - Placeholder action");
+export const handleGenerateMusicClick = async ({
+  // musicPrompt, // Add if a specific prompt for music is needed
+  setMusicErrorMessage,
+  setMusicTaskStatus,
+  // setMusicCompletedUriPollRetries, // Removed
+  musicPollingIntervalId,
+  setMusicPollingIntervalId,
+  setMusicTaskId,
+  setGeneratedMusicUrl,
+  setSelectedMusicFile, // New parameter
+  setUploadedMusicBackendUrl, // New parameter
+  t,
+}) => {
+  setMusicErrorMessage('');
+  setGeneratedMusicUrl(''); // Clear previous generated music URL
+  setSelectedMusicFile(null); // Clear selected/uploaded file
+  setUploadedMusicBackendUrl(null); // Clear its backend URL
+  setMusicTaskStatus(STATUS_INITIALIZING); // Or STATUS_PENDING directly
+  // setMusicCompletedUriPollRetries(0); // Removed
 
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  if (musicPollingIntervalId) {
+    clearInterval(musicPollingIntervalId);
+    setMusicPollingIntervalId(null);
+  }
 
-  // Example:
-  // try {
-  //   const response = await fetch(`${BACKEND_URL}/generate-music`, { // Replace with actual endpoint
-  //     method: 'POST',
-  //     headers: { 'Content-Type': 'application/json' },
-  //     // body: JSON.stringify({ parameters... }) // Add any parameters if needed
-  //   });
-  //   if (!response.ok) {
-  //     const errorData = await response.json().catch(() => ({ message: response.statusText }));
-  //     throw new Error(errorData.message || `HTTP error ${response.status}`);
-  //   }
-  //   const result = await response.json();
-  //   console.log("Music generation successful:", result);
-  //   // Handle success - e.g., set a music URL, update state
-  // } catch (error) {
-  //   console.error("Music generation failed:", error);
-  //   setErrorMessage(t('errorGeneratingMusic', { message: error.message }));
-  // } finally {
-  //   setIsGeneratingMusic(false);
-  // }
+  try {
+    // For now, let's assume a simple prompt or the backend handles it.
+    // If you add a music prompt input in Sidebar/App, pass it here.
+    const bodyPayload = {
+      prompt: "A beautiful and inspiring cinematic track with orchestral elements.", // Example prompt
+      // negative_prompt: "drums", // Optional
+      // seed: 12345 // Optional
+    };
 
-  // For now, just log and reset loading state
-  setErrorMessage(t('musicGenerationNotImplemented')); // Add this key to translation.json
-  setIsGeneratingMusic(false);
+    const response = await fetch(`${BACKEND_URL}/generate-music`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bodyPayload),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || t('errorStartMusicGeneration', { statusText: response.statusText }));
+    }
+
+    setMusicTaskId(data.task_id);
+    setMusicTaskStatus(STATUS_PENDING); // Start polling
+    // No need to fetch history for music tasks separately unless you add a music history view
+
+  } catch (error) {
+    console.error('Error starting music generation:', error);
+    setMusicErrorMessage(error.message || t('errorStartMusicGenerationGeneric'));
+    setMusicTaskStatus(STATUS_FAILED); // Use STATUS_FAILED
+  }
+  // setIsGeneratingMusic(false); // Removed, as this is now derived from musicTaskStatus in App.js
 };
+
+export const pollMusicTaskStatus = async ({
+  musicTaskId,
+  musicTaskStatus, // Current status, useful for logic if needed
+  musicPollingIntervalId, // To clear itself
+  // musicCompletedUriPollRetries, // Removed
+  setMusicTaskStatus,
+  setGeneratedMusicUrl,
+  setMusicErrorMessage,
+  setMusicPollingIntervalId,
+  // setMusicCompletedUriPollRetries, // Removed
+  t,
+  BACKEND_URL, // Passed from App.js
+}) => {
+  if (!musicTaskId) return;
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/music-task-status/${musicTaskId}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.warn(`Music task ${musicTaskId} not found during polling. Stopping polling.`);
+        if (musicPollingIntervalId) clearInterval(musicPollingIntervalId);
+        setMusicPollingIntervalId(null);
+        // setMusicCompletedUriPollRetries(0); // Removed
+        // No separate history for music tasks for now
+        return;
+      }
+      throw new Error(data.error || t('errorFetchMusicTaskStatus', { statusText: response.statusText }));
+    }
+
+    const newStatusFromBackend = data.status;
+    const currentMusicUrl = data.music_url_http; // Backend provides full URL or relative to /api/music/
+
+    let finalTaskStatusToSet = musicTaskStatus; // Default to current
+
+    if (newStatusFromBackend === STATUS_COMPLETED) {
+      if (currentMusicUrl) {
+        // Backend now provides music_url_http which should be relative like /api/music/filename.wav
+        // So we prepend BACKEND_URL
+        setGeneratedMusicUrl(currentMusicUrl); // Already includes BACKEND_URL if backend sends full path, or relative if not.
+                                                 // The backend sends /api/music/..., so it's relative to BACKEND_URL.
+                                                 // Let's assume it's relative and App.js constructs it, or backend sends full.
+                                                 // Based on backend code, it's relative: f"/api/music/{os.path.basename(self.local_music_path)}"
+                                                 // So, we should prepend BACKEND_URL.
+                                                 // However, the <audio> src will be relative to the domain, so just the path is fine.
+        setGeneratedMusicUrl(data.music_url_http); 
+        finalTaskStatusToSet = STATUS_COMPLETED;
+        setMusicErrorMessage('');
+        if (musicPollingIntervalId) clearInterval(musicPollingIntervalId);
+        setMusicPollingIntervalId(null);
+      } else {
+        // If status is completed but URL is missing, this is an unexpected state for music.
+        console.error(`Music task ${musicTaskId} completed but music_url_http is missing.`);
+        setGeneratedMusicUrl('');
+        finalTaskStatusToSet = STATUS_FAILED; // Treat as failure
+        setMusicErrorMessage(t('errorMusicTaskCompletedNoUri'));
+        if (musicPollingIntervalId) clearInterval(musicPollingIntervalId);
+        setMusicPollingIntervalId(null);
+      }
+    } else if (newStatusFromBackend === STATUS_FAILED || newStatusFromBackend === STATUS_ERROR) {
+      setGeneratedMusicUrl(''); 
+      finalTaskStatusToSet = newStatusFromBackend;
+      setMusicErrorMessage(data.error_message || t('errorMusicTaskStatusGeneric', { status: t(newStatusFromBackend + 'Status') }));
+      if (musicPollingIntervalId) clearInterval(musicPollingIntervalId);
+      setMusicPollingIntervalId(null);
+    } else { // Pending or Processing
+      setGeneratedMusicUrl('');
+      finalTaskStatusToSet = newStatusFromBackend;
+      setMusicErrorMessage(data.error_message || ''); 
+    }
+    
+    setMusicTaskStatus(finalTaskStatusToSet);
+
+  } catch (error) {
+    console.error('Error polling music task status:', error);
+    setMusicErrorMessage(prev => {
+      const newErrorMsg = error.message || t('errorPollMusicTaskStatusFailed');
+      if (prev && prev !== t('errorPollMusicTaskStatusFailed')) return prev; 
+      return newErrorMsg;
+    });
+    if (musicPollingIntervalId) clearInterval(musicPollingIntervalId);
+    setMusicPollingIntervalId(null);
+    if (musicTaskStatus !== STATUS_COMPLETED && musicTaskStatus !== STATUS_FAILED && musicTaskStatus !== STATUS_ERROR) {
+      setMusicTaskStatus(STATUS_ERROR); 
+    }
+    // No separate history for music tasks for now
+  }
+};
+
 
 export const fetchHistoryTasks = async (setHistoryTasks, t) => {
   try {
@@ -449,6 +563,40 @@ export const handleExtendVideoClick = async ({
     setTaskStatus(STATUS_ERROR);
   } finally {
     setIsExtending(false);
+  }
+};
+
+export const uploadMusicFile = async (musicFile, t) => {
+  const formData = new FormData();
+  formData.append('music_file', musicFile);
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/upload_music`, {
+      method: 'POST',
+      body: formData,
+      // Note: 'Content-Type' header is not set manually for FormData with fetch.
+      // The browser will set it correctly to 'multipart/form-data' with the boundary.
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      // Handle specific error for file too large (413)
+      if (response.status === 413) {
+        throw new Error(data.error || t('errorMusicFileTooLargeAPI', { message: `Maximum size: ${10}MB` })); // Assuming 10MB from backend
+      }
+      throw new Error(data.error || t('errorUploadMusicFile', { statusText: response.statusText }));
+    }
+
+    if (data.filePath) {
+      return data.filePath; // This will be like "/api/user_uploaded_music/filename.mp3"
+    } else {
+      throw new Error(t('errorUploadMusicFileNoPath'));
+    }
+  } catch (error) {
+    console.error('Error uploading music file:', error);
+    // Re-throw the error so the calling handler can manage UI state (e.g., setErrorMessage)
+    throw error;
   }
 };
 

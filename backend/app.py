@@ -15,6 +15,7 @@ from flask_cors import CORS # Import CORS
 from google import genai
 from google.genai import types
 from google_veo import GoogleVeo # Import GoogleVeo
+from google_lyria import GoogleLyria # Import GoogleLyria
 
 # --- Load Environment Variables ---
 # Construct the path to local.env in the parent directory
@@ -43,6 +44,14 @@ if not os.path.exists(videos_dir): # This will now create backend/data/videos
     os.makedirs(videos_dir)
 if not os.path.exists(thumbnails_dir): # This will now create backend/data/thumbnails
     os.makedirs(thumbnails_dir)
+
+generated_music_dir = os.path.join(data_dir, 'music') # Local folder for Lyria generated music
+if not os.path.exists(generated_music_dir):
+    os.makedirs(generated_music_dir)
+
+user_uploaded_music_dir = os.path.join(data_dir, 'user_uploaded_music') # Local folder for user uploaded music
+if not os.path.exists(user_uploaded_music_dir):
+    os.makedirs(user_uploaded_music_dir)
 
 uploads_dir = os.path.join(data_dir, 'uploads') # Local uploads folder for images, now in data_dir
 if not os.path.exists(uploads_dir): # This will now create backend/data/uploads
@@ -117,6 +126,61 @@ class VideoGenerationTask(db.Model):
             "duration_seconds": self.duration_seconds,
             "gcs_output_bucket": self.gcs_output_bucket
         }
+
+# --- SQLAlchemy Model for MusicGenerationTask ---
+class MusicGenerationTask(db.Model):
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    prompt = db.Column(db.String(1024), nullable=False)
+    negative_prompt = db.Column(db.String(1024), nullable=True)
+    seed = db.Column(db.Integer, nullable=True)
+    status = db.Column(db.String(50), default="pending")  # pending, processing, completed, failed
+    local_music_path = db.Column(db.String(1024), nullable=True) # Path to locally saved music file
+    error_message = db.Column(db.String(1024), nullable=True)
+    created_at = db.Column(db.Float, default=time.time)
+    updated_at = db.Column(db.Float, default=time.time, onupdate=time.time)
+
+    def __repr__(self):
+        return (f"<MusicGenerationTask(id='{self.id}', prompt='{self.prompt[:30]}...', "
+                f"status='{self.status}')>")
+
+    def to_dict(self):
+        # Ensure local_music_path is not None before trying to create a URL
+        music_url = None
+        if self.local_music_path:
+            # local_music_path is stored like "/music/filename.wav"
+            # os.path.basename would correctly extract "filename.wav"
+            music_url = f"/api/music/{os.path.basename(self.local_music_path)}"
+        
+        return {
+            "task_id": self.id,
+            "prompt": self.prompt,
+            "negative_prompt": self.negative_prompt,
+            "seed": self.seed,
+            "status": self.status,
+            "local_music_path": self.local_music_path, # Relative path like /music/filename.wav
+            "music_url_http": music_url,
+            "error_message": self.error_message,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+# --- Initialize Google Services Clients ---
+# Note: Veo client is instantiated per task in _run_video_generation due to model selection
+lyria_client = None
+if PROJECT_ID:
+    try:
+        lyria_client = GoogleLyria(project_id=PROJECT_ID)
+        # Test if the output directory for Lyria can be created by GoogleLyria class itself
+        # This directory is relative to where google_lyria.py is, so it would be backend/generated_music
+        # We want our files in backend/data/music (generated_music_dir)
+        # So, we'll adjust file paths after generation.
+        print(f"GoogleLyria client initialized. Default output dir: {lyria_client.output_dir}")
+    except Exception as e:
+        print(f"Error initializing GoogleLyria client: {e}. Music generation will be unavailable.")
+        lyria_client = None # Ensure it's None if init fails
+else:
+    print("Warning: GCP_PROJECT_ID not set. GoogleLyria client will not be initialized.")
+
 
 def _run_video_generation(task_id):
     with app.app_context(): # Needed for db operations in thread
@@ -351,10 +415,51 @@ def hello_world():
 from werkzeug.utils import secure_filename
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+ALLOWED_MUSIC_EXTENSIONS = {'mp3', 'wav'} # Define allowed music extensions
+MAX_MUSIC_FILE_SIZE = 10 * 1024 * 1024  # 10 MB, for example
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def allowed_music_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_MUSIC_EXTENSIONS
+
+@app.route('/api/upload_music', methods=['POST'])
+def upload_music_route():
+    if 'music_file' not in request.files:
+        return jsonify({"error": "No music_file part in the request"}), 400
+    
+    file = request.files['music_file']
+    
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+        
+    if file and allowed_music_file(file.filename):
+        # Check file size
+        file.seek(0, os.SEEK_END) # Go to the end of the file
+        file_length = file.tell() # Get the current position, which is the size
+        file.seek(0, 0) # Go back to the start of the file for saving
+        
+        if file_length > MAX_MUSIC_FILE_SIZE:
+            return jsonify({"error": f"File exceeds maximum size of {MAX_MUSIC_FILE_SIZE // (1024*1024)}MB"}), 413 # Payload Too Large
+
+        original_extension = os.path.splitext(file.filename)[1]
+        # Use a UUID for the filename to ensure uniqueness and add original extension
+        filename = secure_filename(f"{uuid.uuid4()}{original_extension}")
+        save_path = os.path.join(user_uploaded_music_dir, filename)
+        
+        try:
+            file.save(save_path)
+            # Return a relative path that the frontend can use with the new serving endpoint
+            file_serve_path = f"/api/user_uploaded_music/{filename}"
+            return jsonify({"message": "Music uploaded successfully", "filePath": file_serve_path}), 201
+        except Exception as e:
+            print(f"Error saving uploaded music file: {e}")
+            return jsonify({"error": "Failed to save music file on server"}), 500
+    else:
+        return jsonify({"error": "File type not allowed. Allowed types: mp3, wav"}), 400
 
 @app.route('/api/generate-video', methods=['POST'])
 def generate_video_route():
@@ -604,6 +709,10 @@ def serve_thumbnail(filename):
 def serve_upload(filename):
     return send_from_directory(uploads_dir, filename)
 
+@app.route('/api/user_uploaded_music/<filename>')
+def serve_user_uploaded_music(filename):
+    return send_from_directory(user_uploaded_music_dir, filename)
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     # Basic health check: if the app is running, it's healthy.
@@ -750,14 +859,166 @@ def create_composite_video_route():
     
     return jsonify({"message": "Composite video creation started", "task_id": new_composite_task.id}), 202
 
+
+# --- Music Generation ---
+def _run_music_generation(task_id):
+    with app.app_context():
+        task = MusicGenerationTask.query.get(task_id)
+        if not task:
+            print(f"Music task {task_id} not found for processing.")
+            return
+
+        if not lyria_client:
+            task.status = "failed"
+            task.error_message = "Lyria client not initialized. Check GCP_PROJECT_ID or server logs."
+            task.updated_at = time.time()
+            db.session.commit()
+            print(f"Music task {task_id} failed: Lyria client not initialized.")
+            return
+
+        task.status = "processing"
+        task.updated_at = time.time()
+        db.session.commit()
+        print(f"Starting music generation for task {task_id}, prompt: '{task.prompt}'")
+
+        try:
+            # generate_music returns the full path to the file in its own output_dir (e.g., "generated_music/file.wav")
+            absolute_music_file_path_from_lyria = lyria_client.generate_music(
+                prompt=task.prompt,
+                negative_prompt=task.negative_prompt,
+                seed=task.seed
+            )
+
+            if absolute_music_file_path_from_lyria and os.path.exists(absolute_music_file_path_from_lyria):
+                # We want to move this file to our managed `generated_music_dir` (backend/data/music)
+                # and store a relative path for serving.
+                source_filename = os.path.basename(absolute_music_file_path_from_lyria)
+                # Ensure unique filename in destination, though UUID from Lyria should be unique
+                destination_filename = f"{task.id}_{source_filename}" # Prepend task_id for clarity
+                destination_full_path = os.path.join(generated_music_dir, destination_filename)
+                
+                # Move the file
+                os.rename(absolute_music_file_path_from_lyria, destination_full_path)
+                
+                task.local_music_path = f"/music/{destination_filename}" # Relative path for serving
+                task.status = "completed"
+                print(f"Music generation completed for task {task_id}. File saved to {destination_full_path}")
+                # Clean up the "generated_music" directory if it's empty (optional)
+                # lyria_default_output_dir = os.path.join(backend_dir, "generated_music") # lyria_client.output_dir is relative to google_lyria.py
+                # if os.path.exists(lyria_default_output_dir) and not os.listdir(lyria_default_output_dir):
+                #     try:
+                #         os.rmdir(lyria_default_output_dir)
+                #     except OSError as e:
+                #         print(f"Could not remove Lyria's default output directory {lyria_default_output_dir}: {e}")
+
+            elif absolute_music_file_path_from_lyria is None: # Explicitly None means generation failed within Lyria class
+                task.status = "failed"
+                # Error message should have been printed by Lyria class, but we can add a generic one
+                task.error_message = task.error_message or "Music generation failed. See server logs for details from Lyria client."
+                print(f"Music generation failed for task {task_id} as reported by Lyria client.")
+            else: # Path returned but file doesn't exist
+                task.status = "failed"
+                task.error_message = f"Music generation reported success but file not found at {absolute_music_file_path_from_lyria}."
+                print(f"Music task {task_id} failed: {task.error_message}")
+
+
+        except Exception as e:
+            task.status = "failed"
+            task.error_message = str(e)
+            print(f"Exception during music generation for task {task_id}: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            task.updated_at = time.time()
+            db.session.commit()
+
+@app.route('/api/generate-music', methods=['POST'])
+def generate_music_route():
+    if not lyria_client:
+        return jsonify({"error": "Music generation service is not available. Check server configuration."}), 503
+
+    data = request.get_json()
+    if not data or 'prompt' not in data:
+        return jsonify({"error": "Prompt is required in JSON body"}), 400
+
+    prompt_text = data['prompt']
+    negative_prompt = data.get('negative_prompt')
+    seed_str = data.get('seed')
+    seed = None
+    if seed_str is not None:
+        try:
+            seed = int(seed_str)
+        except ValueError:
+            return jsonify({"error": "Seed must be an integer"}), 400
+
+    new_task = MusicGenerationTask(
+        prompt=prompt_text,
+        negative_prompt=negative_prompt,
+        seed=seed,
+        status="pending"
+    )
+    db.session.add(new_task)
+    db.session.commit()
+    
+    thread = threading.Thread(target=_run_music_generation, args=(new_task.id,))
+    thread.start()
+    
+    return jsonify({"message": "Music generation started", "task_id": new_task.id}), 202
+
+@app.route('/api/music-task-status/<task_id>', methods=['GET'])
+def music_task_status_route(task_id):
+    task = MusicGenerationTask.query.get(task_id)
+    if not task:
+        return jsonify({"error": "Music task not found"}), 404
+    return jsonify(task.to_dict()), 200
+
+@app.route('/api/music-tasks', methods=['GET'])
+def get_music_tasks_route():
+    tasks = MusicGenerationTask.query.order_by(MusicGenerationTask.created_at.desc()).limit(50).all()
+    return jsonify([task.to_dict() for task in tasks]), 200
+
+@app.route('/api/music/<filename>')
+def serve_music(filename):
+    # Ensure filename is safe and does not allow directory traversal
+    safe_filename = secure_filename(filename)
+    if not safe_filename: # secure_filename returns empty string for invalid names
+        return jsonify({"error": "Invalid filename"}), 400
+    return send_from_directory(generated_music_dir, safe_filename)
+
+@app.route('/api/music-task/<task_id>', methods=['DELETE'])
+def delete_music_task_route(task_id):
+    task = MusicGenerationTask.query.get(task_id)
+    if not task:
+        return jsonify({"error": "Music task not found"}), 404
+
+    try:
+        if task.local_music_path:
+            # local_music_path is stored like "/music/filename.wav"
+            music_file_to_delete = os.path.join(generated_music_dir, os.path.basename(task.local_music_path))
+            if os.path.exists(music_file_to_delete):
+                os.remove(music_file_to_delete)
+                print(f"Deleted local music file: {music_file_to_delete}")
+            else:
+                print(f"Local music file not found for deletion: {music_file_to_delete}")
+        
+        db.session.delete(task)
+        db.session.commit()
+        return jsonify({"message": "Music task and associated file deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting music task {task_id}: {e}")
+        return jsonify({"error": f"Failed to delete music task: {str(e)}"}), 500
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all() # Create database tables if they don't exist
-    print(f"Starting Flask app for VEO generation with SQLite persistence.")
+    print(f"Starting Flask app with SQLite persistence.")
     print(f"Database will be stored at: {app.config['SQLALCHEMY_DATABASE_URI']}")
     print(f"Videos will be stored in: {videos_dir}")
     print(f"Thumbnails will be stored in: {thumbnails_dir}")
-    print(f"Uploads will be stored in: {uploads_dir}")
+    print(f"Generated music (Lyria) will be stored in: {generated_music_dir}")
+    print(f"User uploaded music will be stored in: {user_uploaded_music_dir}")
+    print(f"Uploads (images) will be stored in: {uploads_dir}")
     print(f"Using Project ID: {PROJECT_ID}, Location: {LOCATION}")
     print(f"Default Output GCS Bucket: {DEFAULT_OUTPUT_GCS_BUCKET}")
     print(f"Default Video Model: {DEFAULT_VIDEO_MODEL}")

@@ -69,8 +69,15 @@ function App() {
   const [isCreatingVideo, setIsCreatingVideo] = useState(false); // New state for "Create Video" button loading
   const [hoveredHistoryTaskId, setHoveredHistoryTaskId] = useState(null); // For history item hover effect in Create mode
   const [selectedMusicFile, setSelectedMusicFile] = useState(null); // For storing the uploaded music file
-  const [isGeneratingMusic, setIsGeneratingMusic] = useState(false); // For "Generate Music" button loading
-  const [isMusicEnabled, setIsMusicEnabled] = useState(false); // New state for music toggle, default false
+  // const [isGeneratingMusic, setIsGeneratingMusic] = useState(false); // To be derived from musicTaskStatus
+  // const [isMusicEnabled, setIsMusicEnabled] = useState(false); // REMOVED
+  const [musicTaskId, setMusicTaskId] = useState(null);
+  const [musicTaskStatus, setMusicTaskStatus] = useState(''); // e.g., 'pending', 'processing', 'completed', 'failed'
+  const [generatedMusicUrl, setGeneratedMusicUrl] = useState('');
+  const [musicErrorMessage, setMusicErrorMessage] = useState('');
+  const [musicPollingIntervalId, setMusicPollingIntervalId] = useState(null);
+  const [uploadedMusicBackendUrl, setUploadedMusicBackendUrl] = useState(null); // New state for backend URL of uploaded music
+  // const [musicCompletedUriPollRetries, setMusicCompletedUriPollRetries] = useState(0); // Removed
 
 
   // State for backend readiness
@@ -299,6 +306,7 @@ function App() {
     setCameraControl, setDuration, setGcsOutputBucket, t
   ]);
 
+  // Poll for Video Task Status
   useEffect(() => {
     if (taskId &&
         (taskStatus === STATUS_PENDING || taskStatus === STATUS_PROCESSING || taskStatus === STATUS_INITIALIZING ||
@@ -322,6 +330,53 @@ function App() {
       }
     };
   }, [taskId, taskStatus, videoGcsUri, completedUriPollRetries, pollingIntervalId, memoizedPollTaskStatus]);
+
+  // Poll for Music Task Status
+  const memoizedPollMusicTaskStatus = useCallback(() => {
+    Api.pollMusicTaskStatus({ 
+      musicTaskId, 
+      musicTaskStatus, 
+      musicPollingIntervalId, // Pass current intervalId for clearing
+      setMusicTaskStatus, 
+      setGeneratedMusicUrl, 
+      setMusicErrorMessage, 
+      setMusicPollingIntervalId,
+      t, 
+      BACKEND_URL, 
+    });
+  }, [
+    musicTaskId, 
+    musicTaskStatus, 
+    // musicPollingIntervalId, // Removed from dependencies
+    setMusicTaskStatus, 
+    setGeneratedMusicUrl, 
+    setMusicErrorMessage, 
+    setMusicPollingIntervalId,
+    t 
+    // BACKEND_URL is stable from constants, t is stable from useTranslation
+  ]);
+
+  useEffect(() => {
+    if (musicTaskId &&
+        (musicTaskStatus === STATUS_PENDING || musicTaskStatus === STATUS_PROCESSING || musicTaskStatus === STATUS_INITIALIZING)) {
+      if (!musicPollingIntervalId) {
+        const intervalId = setInterval(memoizedPollMusicTaskStatus, 3000);
+        setMusicPollingIntervalId(intervalId);
+      }
+    } else if (musicPollingIntervalId) {
+      // Stop polling if status is completed, failed, or error
+      if (musicTaskStatus === STATUS_COMPLETED || musicTaskStatus === STATUS_FAILED || musicTaskStatus === STATUS_ERROR) {
+        clearInterval(musicPollingIntervalId);
+        setMusicPollingIntervalId(null);
+      }
+    }
+    return () => {
+      if (musicPollingIntervalId) {
+        clearInterval(musicPollingIntervalId);
+      }
+    };
+  }, [musicTaskId, musicTaskStatus, musicPollingIntervalId, memoizedPollMusicTaskStatus]); // generatedMusicUrl and musicCompletedUriPollRetries removed from deps
+
 
   useEffect(() => {
     // Autoplay video when a completed task's video becomes available
@@ -453,6 +508,23 @@ function App() {
      setActiveCreateModeVideoSrc, // Pass to clear video player in create mode
   });
 
+  const doHandleGenerateMusicClick = () => Api.handleGenerateMusicClick({
+    // musicPrompt: "A happy tune" // Example, if you add a dedicated music prompt state
+    setMusicErrorMessage,
+    setMusicTaskStatus,
+    // setMusicCompletedUriPollRetries, // Removed
+    musicPollingIntervalId, // Pass to clear if a new request is made while old one is polling
+    setMusicPollingIntervalId,
+    setMusicTaskId,
+    setGeneratedMusicUrl, // To clear previous music URL
+    setSelectedMusicFile, // To clear selected file when generating new
+    setUploadedMusicBackendUrl, // To clear uploaded backend URL when generating new
+    t,
+    // You might need a specific music prompt state if it's different from the video prompt
+    // musicPrompt: "A happy tune" // Example
+  });
+
+
   const doHandleKeywordButtonClick = (keyword) => Handlers.handleKeywordButtonClick(keyword, prompt, setPrompt, boundHandleRefinePrompt);
 
   const doHandleExtendVideoClick = (taskIdToExtend) => Api.handleExtendVideoClick({
@@ -572,13 +644,7 @@ function App() {
               createModeClips={createModeClips}
               onCreateVideoClick={doHandleCreateVideoClick}
               isCreatingVideo={isCreatingVideo}
-              // Music Props
-              onMusicFileUpload={(e) => Handlers.handleMusicFileUpload(e, setSelectedMusicFile, setErrorMessage, t)}
-              onGenerateMusicClick={() => Api.handleGenerateMusicClick(setIsGeneratingMusic, setErrorMessage, t)} // Assuming a new handler in Api.js
-              isGeneratingMusic={isGeneratingMusic}
-              selectedMusicFile={selectedMusicFile}
-              isMusicEnabled={isMusicEnabled}
-              onToggleMusic={() => setIsMusicEnabled(prev => !prev)}
+              // Music Props are no longer passed to Sidebar
             />
             <MainContent
               theme={theme}
@@ -607,6 +673,18 @@ function App() {
               pixelsPerSecond={pixelsPerSecond}
               BACKEND_URL={BACKEND_URL}
               onDragEnd={handleDragEnd} // Pass the new handler
+              // Music Props for MainContent track
+              onMusicFileUpload={(e) => Handlers.handleMusicFileUpload(e, setSelectedMusicFile, setUploadedMusicBackendUrl, setMusicErrorMessage, t)}
+              onGenerateMusicClick={doHandleGenerateMusicClick}
+              isGeneratingMusic={musicTaskStatus === STATUS_PENDING || musicTaskStatus === STATUS_PROCESSING || musicTaskStatus === STATUS_INITIALIZING}
+              selectedMusicFile={selectedMusicFile}
+              uploadedMusicBackendUrl={uploadedMusicBackendUrl} // Pass new prop
+              // isMusicEnabled prop removed
+              // onToggleMusic prop removed
+              generatedMusicUrl={generatedMusicUrl}
+              musicTaskStatus={musicTaskStatus}
+              musicErrorMessage={musicErrorMessage}
+              isCreatingVideo={isCreatingVideo} // Pass this to disable controls
             />
             <HistorySidebar
               theme={theme}

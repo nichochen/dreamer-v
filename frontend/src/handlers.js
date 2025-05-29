@@ -1,7 +1,7 @@
 import { urlToImageFile } from './utils';
 // Ensure STATUS_COMPLETED is imported
 import { BACKEND_URL, STATUS_PENDING, STATUS_ERROR, STATUS_COMPLETED } from './constants'; 
-import { createCompositeVideo } from './api'; // Import the new API function
+import { createCompositeVideo, uploadMusicFile as apiUploadMusicFile } from './api'; // Import the new API function and alias uploadMusicFile
 
 export const handleImagePreviewClick = (imageUrl, setModalImageUrl, setShowImageModal) => {
   setModalImageUrl(imageUrl);
@@ -45,25 +45,63 @@ export const handlePasteFromClipboard = async (target, setSelectedImage, setImag
   }
 };
 
-export const handleMusicFileUpload = (event, setSelectedMusicFile, setErrorMessage, t) => {
+export const handleMusicFileUpload = async (event, setSelectedMusicFile, setUploadedMusicBackendUrl, setMusicErrorMessage, t) => {
   const file = event.target.files[0];
-  if (file) {
-    if (file.type === "audio/mpeg" || file.name.endsWith(".mp3")) {
-      if (file.size <= 10 * 1024 * 1024) { // 10MB limit
-        setSelectedMusicFile(file);
-        setErrorMessage(''); // Clear any previous error
-      } else {
-        setErrorMessage(t('errorMusicFileTooLarge', { maxSize: '10MB' }));
-        setSelectedMusicFile(null);
-        event.target.value = null; // Reset file input
-      }
+  
+  // Clear previous states immediately
+  setSelectedMusicFile(null);
+  setUploadedMusicBackendUrl(null);
+  setMusicErrorMessage('');
+
+  if (!file) {
+    event.target.value = null; // Reset file input if no file is chosen (e.g., user cancels dialog)
+    return;
+  }
+
+  // Client-side validation (type and size)
+  const allowedTypes = ["audio/mpeg", "audio/wav", "audio/mp3"]; // audio/mp3 for robustness
+  const isAllowedType = allowedTypes.includes(file.type) || file.name.endsWith(".mp3") || file.name.endsWith(".wav");
+  const maxSize = 10 * 1024 * 1024; // 10MB
+
+  if (!isAllowedType) {
+    setMusicErrorMessage(t('errorInvalidMusicFileType', { allowedTypes: '.mp3, .wav' }));
+    event.target.value = null; // Reset file input
+    return;
+  }
+
+  if (file.size > maxSize) {
+    setMusicErrorMessage(t('errorMusicFileTooLarge', { maxSize: `${maxSize / (1024 * 1024)}MB` }));
+    event.target.value = null; // Reset file input
+    return;
+  }
+
+  // If client-side validation passes, set the file for immediate UI feedback (e.g., filename display)
+  setSelectedMusicFile(file); // Show filename while uploading
+
+  try {
+    // Call API to upload the file
+    // Show some kind of "uploading..." message if desired, by setting musicErrorMessage or a new state
+    setMusicErrorMessage(t('uploadingMusicMessage', 'Uploading music...')); // Placeholder for new translation key
+
+    const backendFilePath = await apiUploadMusicFile(file, t); // api.js function
+
+    if (backendFilePath) {
+      setUploadedMusicBackendUrl(BACKEND_URL + backendFilePath); // Prepend BACKEND_URL to make it a full URL
+      setMusicErrorMessage(''); // Clear "uploading" message or any previous error
+      // setSelectedMusicFile(file); // Already set
     } else {
-      setErrorMessage(t('errorInvalidMusicFileType'));
-      setSelectedMusicFile(null);
-      event.target.value = null; // Reset file input
+      // This case should ideally be caught by apiUploadMusicFile throwing an error
+      throw new Error(t('errorUploadMusicFileNoPath'));
     }
+  } catch (error) {
+    console.error('Failed to upload music file:', error);
+    setMusicErrorMessage(error.message || t('errorUploadMusicFileGeneric')); // A more generic error key might be needed
+    setSelectedMusicFile(null); // Clear the selected file on error
+    setUploadedMusicBackendUrl(null); // Clear backend URL on error
+    event.target.value = null; // Reset file input
   }
 };
+
 
 export const handleMouseDownResize = (e, setIsResizing, setStartY, setStartHeight, videoHeight) => {
   setIsResizing(true);
@@ -168,12 +206,23 @@ export const handleHistoryItemClick = async ({
       // Only add completed tasks to the create mode track
       if (task.status === STATUS_COMPLETED && task.local_video_path) {
         setCreateModeClips(prevClips => {
-          if (prevClips.length >= 8) {
-            // TODO: Consider providing user feedback via setErrorMessage or an alert
-            alert(t('errorMaxClipsReached', { maxClips: 8 })); // Assuming 'errorMaxClipsReached' will be added to translation files
-            // If max clips reached, do not add the new clip and return previous clips
+          // Max clips check
+          const MAX_CLIPS_ALLOWED = 8; // Consistent with existing alert
+          if (prevClips.length >= MAX_CLIPS_ALLOWED) {
+            alert(t('errorMaxClipsReached', { maxClips: MAX_CLIPS_ALLOWED }));
             return prevClips;
           }
+
+          // Max duration check
+          const MAX_TOTAL_DURATION_SECONDS = 60;
+          const currentTotalDuration = prevClips.reduce((sum, clip) => sum + (parseInt(clip.duration_seconds, 10) || 0), 0);
+          const newClipDuration = parseInt(task.duration_seconds, 10) || 0;
+
+          if (currentTotalDuration + newClipDuration > MAX_TOTAL_DURATION_SECONDS) {
+            alert(t('errorMaxDurationReached', { maxDuration: MAX_TOTAL_DURATION_SECONDS }));
+            return prevClips;
+          }
+
           const newTrackInstanceId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
           const newClipInstance = { ...task, trackInstanceId: newTrackInstanceId };
 

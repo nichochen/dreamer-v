@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import {
   STATUS_PROCESSING,
@@ -41,7 +41,38 @@ function MainContent({
   pixelsPerSecond,
   BACKEND_URL, // For constructing src URLs
   onDragEnd, // New prop for handling drag and drop
+  // Music Props for the track
+  onMusicFileUpload,
+  onGenerateMusicClick,
+  isGeneratingMusic,
+  selectedMusicFile,
+  // isMusicEnabled, // Removed
+  // onToggleMusic, // Removed
+  generatedMusicUrl,
+  musicTaskStatus,
+  musicErrorMessage,
+  uploadedMusicBackendUrl, // New prop
+  isCreatingVideo, // To disable controls
 }) {
+  const musicFileInputRef = useRef(null);
+  const [uploadedMusicSrc, setUploadedMusicSrc] = useState(null);
+
+  useEffect(() => {
+    if (selectedMusicFile) {
+      const objectUrl = URL.createObjectURL(selectedMusicFile);
+      setUploadedMusicSrc(objectUrl);
+
+      return () => {
+        URL.revokeObjectURL(objectUrl);
+        setUploadedMusicSrc(null); // Clear src on cleanup
+      };
+    } else {
+      // If selectedMusicFile becomes null, ensure uploadedMusicSrc is also null.
+      // Cleanup from a previous effect (when selectedMusicFile was present) handles revocation.
+      setUploadedMusicSrc(null);
+    }
+  }, [selectedMusicFile]);
+
   return (
     <main className={`main-content-area flex-grow-1 p-4 d-flex flex-column ${theme === 'dark' ? 'bg-dark text-light' : ''}`}>
       {activeView === 'dream' && (
@@ -177,56 +208,73 @@ function MainContent({
             </div>
           </div>
           <div className={`video-clip-track card mt-2 ${theme === 'dark' ? 'bg-dark' : 'bg-light'}`}>
-            <div className="card-body p-2 d-flex flex-column">
-              <div
-                className="timeline-container mb-2"
+            <div className="card-body p-2 d-flex align-items-center"> {/* Changed to flex-row and align-items-center */}
+              {/* Fixed Film Icon (Moved outside scrollable container) */}
+              <div className="me-2" title={t('videoTrackHeadIconTitle', "Start of video track")}>
+                <i className={`bi bi-film ${theme === 'dark' ? 'text-light' : 'text-dark'}`} style={{ fontSize: '1.8rem', opacity: 0.8 }}></i>
+              </div>
+              {/* Combined Scrollable Container for Timeline and Clips */}
+              <div style={{ overflowX: 'auto', flexGrow: 1 }}> {/* Added flexGrow: 1 */}
+                <div
+                  className="timeline-container mb-2"
                 style={{
-                  width: '100%',
-                  height: '50px',
+                  height: '35px', // Reduced height
                   backgroundColor: theme === 'dark' ? '#343a40' : '#f1f3f5',
                   borderRadius: '0.25rem',
                   border: theme === 'dark' ? '1px solid #495057' : '1px solid #ced4da',
-                  overflowX: 'auto',
                   position: 'relative',
+                  minWidth: `${10 + (65 * pixelsPerSecond)}px`, 
                 }}
               >
                 <div
                   style={{
                     position: 'relative',
                     height: '100%',
-                    minWidth: `${(60 * pixelsPerSecond) + 10 + 40}px`,
+                    minWidth: `${10 + (65 * pixelsPerSecond)}px`, // Maintains total width for 0-64s span
                     display: 'flex',
                     alignItems: 'flex-end',
                     paddingLeft: '10px',
                   }}
                 >
-                  {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map((time) => (
-                    <div
-                      key={time}
-                      style={{
-                        width: `${5 * pixelsPerSecond}px`,
-                        position: 'relative',
-                        fontSize: '0.8em',
-                        color: theme === 'dark' ? '#adb5bd' : '#495057',
-                        flexShrink: 0,
-                        paddingBottom: '5px',
-                      }}
-                    >
-                      <div style={{ position: 'absolute', bottom: '20px', left: '0%', width: '1px', height: '8px', backgroundColor: theme === 'dark' ? '#6c757d' : '#adb5bd' }}></div>
-                      {time}s
-                    </div>
-                  ))}
+                  {Array.from({ length: 65 }, (_, i) => i).map((time) => {
+                    const isMajorTickTime = time % 5 === 0 && time <= 60;
+                    return (
+                      <div
+                        key={time}
+                        style={{
+                          width: `${pixelsPerSecond}px`, // Each tick represents 1 second
+                          position: 'relative',
+                          fontSize: '0.8em',
+                          color: theme === 'dark' ? '#adb5bd' : '#495057',
+                          flexShrink: 0,
+                          paddingBottom: isMajorTickTime ? '5px' : '0px', // Padding for label on major ticks
+                          height: '100%', // Ensure div takes full height to align tick correctly
+                        }}
+                      >
+                        <div style={{
+                          position: 'absolute',
+                          bottom: '15px', // Position from bottom of the div's padding box
+                          left: '0%',
+                          width: '1px',
+                          height: isMajorTickTime ? '10px' : '6px', // Taller for major, shorter for minor
+                          backgroundColor: theme === 'dark' ? '#6c757d' : '#adb5bd',
+                        }}></div>
+                        {isMajorTickTime && <span style={{ paddingLeft: '2px' }}>{`${time}s`}</span>}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               <DragDropContext onDragEnd={onDragEnd}>
-                <Droppable droppableId="clips" direction="horizontal">
+                <Droppable droppableId="clips" direction="horizontal" isDropDisabled={isCreatingVideo} isCombineEnabled={false}>
                   {(provided) => (
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className="clips-scroll-container d-flex"
-                      style={{ overflowX: 'auto', flexGrow: 1 }}
+                      className="clips-scroll-container d-flex align-items-center"
+                      style={{ paddingLeft: '10px', minHeight: '100px' /* New smaller padding */ }}
                     >
+                      {/* Film Icon Removed from here */}
                       {createModeClips.length === 0 && <p className={`m-0 ${theme === 'dark' ? 'text-light' : 'text-muted'}`}>{t('createClipTrackPlaceholder')}</p>}
                       {createModeClips.map((clip, index) => (
                         <Draggable key={clip.trackInstanceId} draggableId={clip.trackInstanceId} index={index}>
@@ -268,8 +316,143 @@ function MainContent({
                   )}
                 </Droppable>
               </DragDropContext>
+              </div> {/* Closing tag for the new wrapper div */}
             </div>
           </div>
+
+          {/* Music Track */}
+          <div className={`music-track card mt-2 ${theme === 'dark' ? 'bg-dark' : 'bg-light'}`}>
+            <div className="card-body p-2 d-flex align-items-center" style={{ minHeight: '60px' }}> {/* Ensure some height */}
+              {/* Music Icon at the head of the track */}
+              <div className="me-2" title={t('musicTrackHeadIconTitle', "Music track")}>
+                <i className={`bi bi-music-note-beamed ${theme === 'dark' ? 'text-light' : 'text-dark'}`} style={{ fontSize: '1.8rem', opacity: 0.8 }}></i>
+              </div>
+              {/* Music Controls Area */}
+              <div className="flex-grow-1 d-flex flex-column justify-content-center ms-2">
+                {(() => {
+                  // Case 1: Generated music is completed and available
+                  if (musicTaskStatus === 'completed' && generatedMusicUrl) {
+                    return (
+                      <div className="mt-1 mb-1">
+                        <audio controls src={generatedMusicUrl} className="w-100" style={{ height: '30px' }}>
+                          {t('audioTagNotSupported')}
+                        </audio>
+                      </div>
+                    );
+                  }
+
+                  // Case 2: User uploaded music is available (and not superseded by Case 1)
+                  // Prioritize backend URL if available, otherwise use local blob.
+                  if (uploadedMusicBackendUrl) {
+                    return (
+                      <div className="mt-1 mb-1">
+                        <audio key={uploadedMusicBackendUrl} controls src={uploadedMusicBackendUrl} className="w-100" style={{ height: '30px' }}>
+                          {t('audioTagNotSupported')}
+                        </audio>
+                        {selectedMusicFile && ( // Show filename if we still have it
+                           <small className={`form-text ${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'} d-block mt-1`}>
+                             {t('selectedMusicFileLabel')}: {selectedMusicFile.name}
+                           </small>
+                        )}
+                      </div>
+                    );
+                  } else if (selectedMusicFile && uploadedMusicSrc && musicTaskStatus !== 'processing' && musicTaskStatus !== 'failed' && !isGeneratingMusic) {
+                    // Fallback to local blob URL if backend URL isn't ready or upload failed but file is still selected
+                    return (
+                      <div className="mt-1 mb-1">
+                        <audio key={uploadedMusicSrc} controls src={uploadedMusicSrc} className="w-100" style={{ height: '30px' }}>
+                          {t('audioTagNotSupported')}
+                        </audio>
+                        <small className={`form-text ${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'} d-block mt-1`}>
+                          {t('selectedMusicFileLabel')}: {selectedMusicFile.name} (local preview)
+                        </small>
+                      </div>
+                    );
+                  }
+                  
+                  // Case 3: Music is being processed (Lyria generation or potentially user upload if we add that state)
+                  // musicTaskStatus refers to Lyria generation. For user uploads, musicErrorMessage will show "Uploading..."
+                  if (musicTaskStatus === 'processing') {
+                    return (
+                      <div className="mt-1 mb-1 text-center">
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        <small>{t('musicProcessingStatus')}</small>
+                      </div>
+                    );
+                  }
+
+                  // Case 4: Music processing/generation failed (Lyria) or upload error message exists
+                  if (musicTaskStatus === 'failed' || (musicErrorMessage && musicErrorMessage !== t('uploadingMusicMessage', 'Uploading music...'))) {
+                    return (
+                      <div className="alert alert-danger mt-1 mb-1 p-1" role="alert">
+                        <small>{musicErrorMessage || t('musicGenerationFailedGeneric')}</small>
+                      </div>
+                    );
+                  }
+                  
+                  // Case 5: Show "Uploading..." message if it's set
+                  if (musicErrorMessage === t('uploadingMusicMessage', 'Uploading music...')) {
+                    return (
+                       <div className="mt-1 mb-1 text-center">
+                         <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                         <small>{musicErrorMessage}</small>
+                       </div>
+                    );
+                  }
+
+                  // Case 6: Default - Show buttons to upload or generate music, and selected file name or placeholder
+                  return (
+                    <>
+                      <div className="d-flex align-items-center mb-1">
+                        <button
+                          className={`btn btn-sm ${theme === 'dark' ? 'btn-outline-light' : 'btn-outline-secondary'} me-2`}
+                          onClick={() => musicFileInputRef.current && musicFileInputRef.current.click()}
+                          disabled={isCreatingVideo || isGeneratingMusic}
+                          title={t('uploadMusicFileLabel')}
+                        >
+                          <i className="bi bi-upload"></i>
+                        </button>
+                        <input
+                          ref={musicFileInputRef}
+                          type="file"
+                          id="musicFileUploadMain"
+                          accept=".mp3,.wav"
+                          onChange={onMusicFileUpload}
+                          disabled={isCreatingVideo || isGeneratingMusic}
+                          style={{ opacity: 0, position: 'absolute', width: '1px', height: '1px', zIndex: -1 }}
+                        />
+                        <button
+                          className={`btn btn-sm ${theme === 'dark' ? 'btn-outline-light' : 'btn-outline-secondary'}`}
+                          onClick={onGenerateMusicClick}
+                          disabled={isCreatingVideo || isGeneratingMusic}
+                          title={t('generateMusicButton')}
+                        >
+                          {isGeneratingMusic ? (
+                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                          ) : (
+                            <i className="bi bi-soundwave"></i>
+                          )}
+                        </button>
+                      </div>
+                      {selectedMusicFile && (!generatedMusicUrl && musicTaskStatus !== 'completed' && musicTaskStatus !== 'processing' && musicTaskStatus !== 'failed') && (
+                        <small className={`form-text ${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'} mt-1 mb-1`}>
+                          {t('selectedMusicFileLabel')}: {selectedMusicFile.name}
+                          {isGeneratingMusic ? ` (${t('generatingNewMusicPlaceholder', 'generating new...')})` : ''}
+                        </small>
+                      )}
+                      {!selectedMusicFile && (
+                        <small className={`form-text ${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'} mt-1 mb-1`}>
+                          {t('addOrGenerateMusicPlaceholder', 'Upload or generate music.')}
+                        </small>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+              {/* Music Toggle Switch Removed */}
+            </div>
+          </div>
+
           <div style={{ flexGrow: 1 }}></div> {/* Spacer to consume remaining vertical space */}
         </div>
       )}

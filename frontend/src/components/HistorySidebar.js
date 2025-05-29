@@ -40,7 +40,7 @@ function HistorySidebar({
             />
           </div>
           {historyTasks.filter(task => task.prompt && task.prompt.toLowerCase().includes(historyFilter.toLowerCase())).length === 0 && <p className={`${theme === 'dark' ? 'text-light' : 'text-muted'}`}>{t('historyNoMatchingTasks')}</p>}
-          <ul className="list-group list-group-flush flex-grow-1" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 10px)' }}>
+          <ul className="list-group list-group-flush flex-grow-1" style={{ overflowY: 'auto', maxHeight: 'calc(79vh)' }}>
             {historyTasks
               .filter(task => task.prompt && task.prompt.toLowerCase().includes(historyFilter.toLowerCase()))
               .map((task) => {
