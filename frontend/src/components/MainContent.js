@@ -419,7 +419,7 @@ function MainContent({
                           accept=".mp3,.wav"
                           onChange={onMusicFileUpload}
                           disabled={isCreatingVideo || isGeneratingMusic}
-                          style={{ opacity: 0, position: 'absolute', width: '1px', height: '1px', zIndex: -1 }}
+                          style={{ opacity: 0, position: 'absolute', width: '1px', height: '1px' }}
                         />
                         <button
                           className={`btn btn-sm ${theme === 'dark' ? 'btn-outline-light' : 'btn-outline-secondary'}`}

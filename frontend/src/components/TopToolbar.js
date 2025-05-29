@@ -49,7 +49,7 @@ function TopToolbar({
           onClick={() => setActiveView('create')}
           type="button"
         >
-          <i className="bi bi-pencil-square"></i>
+          <i className="bi bi-intersect"></i>
           {t('createView')}
         </button>
       </div>

@@ -348,7 +348,7 @@ function Sidebar({
           <div className="card">
             <div className="card-body text-center">
               <button
-                className={`btn btn-primary btn-lg mt-2`}
+                className={`btn btn-primary btn-lg mt-2 w-100`}
                 onClick={onCreateVideoClick}
               disabled={isCreatingVideo || createModeClips.length < 2}
             >
