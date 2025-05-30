@@ -53,6 +53,7 @@ function MainContent({
   musicErrorMessage,
   uploadedMusicBackendUrl, // New prop
   isCreatingVideo, // To disable controls
+  onClearMusicSelection, // New prop for clearing selected music
 }) {
   const musicFileInputRef = useRef(null);
   const [uploadedMusicSrc, setUploadedMusicSrc] = useState(null);
@@ -330,54 +331,77 @@ function MainContent({
               {/* Music Controls Area */}
               <div className="flex-grow-1 d-flex flex-column justify-content-center ms-2">
                 {(() => {
-                  // Case 1: Generated music is completed and available
+                  // Case 1: Generated music (Lyria) is completed and available
                   if (musicTaskStatus === 'completed' && generatedMusicUrl) {
                     return (
                       <div className="mt-1 mb-1">
                         <audio controls src={generatedMusicUrl} className="w-100" style={{ height: '30px' }}>
                           {t('audioTagNotSupported')}
                         </audio>
+                        {/* For future: Optionally, allow clearing Lyria-generated music too. */}
                       </div>
                     );
                   }
 
-                  // Case 2: User uploaded music is available (and not superseded by Case 1)
-                  // Prioritize backend URL if available, otherwise use local blob.
-                  if (uploadedMusicBackendUrl) {
+                  // Case 2: An uploaded file is selected (selectedMusicFile is not null)
+                  // This takes precedence over "processing" or "failed" if a file is still considered "selected"
+                  if (selectedMusicFile) {
                     return (
-                      <div className="mt-1 mb-1">
-                        <audio key={uploadedMusicBackendUrl} controls src={uploadedMusicBackendUrl} className="w-100" style={{ height: '30px' }}>
-                          {t('audioTagNotSupported')}
-                        </audio>
-                        {selectedMusicFile && ( // Show filename if we still have it
-                           <small className={`form-text ${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'} d-block mt-1`}>
-                             {t('selectedMusicFileLabel')}: {selectedMusicFile.name}
-                           </small>
+                      <>
+                        <div className="d-flex align-items-center justify-content-between mt-1 mb-1">
+                          <small
+                            className={`form-text ${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'} me-2 text-truncate`}
+                            title={selectedMusicFile.name}
+                            style={{ flexGrow: 1, minWidth: 0 }} // Allow text to take space and truncate
+                          >
+                            {t('selectedMusicFileLabel')}: {selectedMusicFile.name}
+                            {isGeneratingMusic && !generatedMusicUrl ? ` (${t('generatingNewMusicPlaceholder', 'generating new...')})` : ''}
+                            {!uploadedMusicBackendUrl && uploadedMusicSrc && musicTaskStatus !== 'processing' && musicTaskStatus !== 'failed' && !isGeneratingMusic ? ' (local preview)' : ''}
+                          </small>
+                          <button
+                            className={`btn btn-sm ${theme === 'dark' ? 'btn-outline-light' : 'btn-outline-danger'} p-1`}
+                            onClick={() => {
+                              onClearMusicSelection();
+                              if (musicFileInputRef.current) {
+                                musicFileInputRef.current.value = ""; // Reset file input
+                              }
+                            }}
+                            disabled={isCreatingVideo}
+                            title={t('clearMusicSelectionButtonTitle', 'Clear selected music')}
+                            style={{ lineHeight: '1', height: '24px', width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                          >
+                            <i className="bi bi-x-lg" style={{ fontSize: '0.8rem' }}></i>
+                          </button>
+                        </div>
+                        {uploadedMusicBackendUrl && (
+                          <audio key={uploadedMusicBackendUrl} controls src={uploadedMusicBackendUrl} className="w-100 mt-1" style={{ height: '30px' }}>
+                            {t('audioTagNotSupported')}
+                          </audio>
                         )}
-                      </div>
-                    );
-                  } else if (selectedMusicFile && uploadedMusicSrc && musicTaskStatus !== 'processing' && musicTaskStatus !== 'failed' && !isGeneratingMusic) {
-                    // Fallback to local blob URL if backend URL isn't ready or upload failed but file is still selected
-                    return (
-                      <div className="mt-1 mb-1">
-                        <audio key={uploadedMusicSrc} controls src={uploadedMusicSrc} className="w-100" style={{ height: '30px' }}>
-                          {t('audioTagNotSupported')}
-                        </audio>
-                        <small className={`form-text ${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'} d-block mt-1`}>
-                          {t('selectedMusicFileLabel')}: {selectedMusicFile.name} (local preview)
-                        </small>
-                      </div>
+                        {!uploadedMusicBackendUrl && uploadedMusicSrc && musicTaskStatus !== 'processing' && musicTaskStatus !== 'failed' && !isGeneratingMusic && (
+                          <audio key={uploadedMusicSrc} controls src={uploadedMusicSrc} className="w-100 mt-1" style={{ height: '30px' }}>
+                            {t('audioTagNotSupported')}
+                          </audio>
+                        )}
+                      </>
                     );
                   }
-                  
-                  // Case 3: Music is being processed (Lyria generation or potentially user upload if we add that state)
-                  // musicTaskStatus refers to Lyria generation. For user uploads, musicErrorMessage will show "Uploading..."
-                  if (musicTaskStatus === 'processing') {
+
+                  // Case 3: Music is being processed (Lyria generation or user upload in progress)
+                  if (musicTaskStatus === 'processing') { // Lyria processing
                     return (
                       <div className="mt-1 mb-1 text-center">
                         <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                         <small>{t('musicProcessingStatus')}</small>
                       </div>
+                    );
+                  }
+                  if (musicErrorMessage === t('uploadingMusicMessage', 'Uploading music...')) { // User file upload processing
+                    return (
+                       <div className="mt-1 mb-1 text-center">
+                         <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                         <small>{musicErrorMessage}</small>
+                       </div>
                     );
                   }
 
@@ -389,18 +413,8 @@ function MainContent({
                       </div>
                     );
                   }
-                  
-                  // Case 5: Show "Uploading..." message if it's set
-                  if (musicErrorMessage === t('uploadingMusicMessage', 'Uploading music...')) {
-                    return (
-                       <div className="mt-1 mb-1 text-center">
-                         <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                         <small>{musicErrorMessage}</small>
-                       </div>
-                    );
-                  }
 
-                  // Case 6: Default - Show buttons to upload or generate music, and selected file name or placeholder
+                  // Case 5: Default - Show buttons to upload or generate music (if no file selected and no active operations/errors)
                   return (
                     <>
                       <div className="d-flex align-items-center mb-1">
@@ -424,27 +438,19 @@ function MainContent({
                         <button
                           className={`btn btn-sm ${theme === 'dark' ? 'btn-outline-light' : 'btn-outline-secondary'}`}
                           onClick={onGenerateMusicClick}
-                          disabled={isCreatingVideo || isGeneratingMusic}
+                          disabled={isCreatingVideo || isGeneratingMusic || true} // Always disable for now
                           title={t('generateMusicButton')}
                         >
-                          {isGeneratingMusic ? (
+                          {isGeneratingMusic ? ( // This condition might not be met if button is always disabled
                             <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                           ) : (
                             <i className="bi bi-soundwave"></i>
                           )}
                         </button>
                       </div>
-                      {selectedMusicFile && (!generatedMusicUrl && musicTaskStatus !== 'completed' && musicTaskStatus !== 'processing' && musicTaskStatus !== 'failed') && (
-                        <small className={`form-text ${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'} mt-1 mb-1`}>
-                          {t('selectedMusicFileLabel')}: {selectedMusicFile.name}
-                          {isGeneratingMusic ? ` (${t('generatingNewMusicPlaceholder', 'generating new...')})` : ''}
-                        </small>
-                      )}
-                      {!selectedMusicFile && (
-                        <small className={`form-text ${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'} mt-1 mb-1`}>
-                          {t('addOrGenerateMusicPlaceholder', 'Upload or generate music.')}
-                        </small>
-                      )}
+                      <small className={`form-text ${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'} mt-1 mb-1`}>
+                        {t('addOrGenerateMusicPlaceholder', 'Upload or generate music.')}
+                      </small>
                     </>
                   );
                 })()}

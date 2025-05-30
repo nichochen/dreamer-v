@@ -124,5 +124,7 @@
   "errorUploadMusicFile": "Failed to upload music file: {{statusText}}",
   "errorUploadMusicFileNoPath": "Music file uploaded, but no path was returned from the server.",
   "uploadingMusicMessage": "Uploading music...",
-  "errorUploadMusicFileGeneric": "Failed to upload music file. Please try again."
+  "errorUploadMusicFileGeneric": "Failed to upload music file. Please try again.",
+  "clearMusicSelectionButtonTitle": "Clear selected music",
+  "musicGenerationComingSoonMessage": "Music generation feature is coming soon!"
 }

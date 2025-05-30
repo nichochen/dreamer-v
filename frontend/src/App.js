@@ -79,6 +79,14 @@ function App() {
   const [uploadedMusicBackendUrl, setUploadedMusicBackendUrl] = useState(null); // New state for backend URL of uploaded music
   // const [musicCompletedUriPollRetries, setMusicCompletedUriPollRetries] = useState(0); // Removed
 
+  const handleClearMusicSelection = () => {
+    setSelectedMusicFile(null);
+    setUploadedMusicBackendUrl(null);
+    setMusicErrorMessage(''); // Clear any music-related errors
+    // If there's a music file input ref, you might want to reset its value too
+    // e.g., if (musicFileInputRef.current) musicFileInputRef.current.value = "";
+    // This is handled in MainContent.js directly for now.
+  };
 
   // State for backend readiness
   const [isBackendReady, setIsBackendReady] = useState(false);
@@ -508,6 +516,10 @@ function App() {
      setActiveCreateModeVideoSrc, // Pass to clear video player in create mode
   });
 
+  const handleGenerateMusicFeatureComingSoon = () => {
+    alert(t('musicGenerationComingSoonMessage', 'Music generation feature is coming soon!'));
+  };
+
   const doHandleGenerateMusicClick = () => Api.handleGenerateMusicClick({
     // musicPrompt: "A happy tune" // Example, if you add a dedicated music prompt state
     setMusicErrorMessage,
@@ -675,7 +687,7 @@ function App() {
               onDragEnd={handleDragEnd} // Pass the new handler
               // Music Props for MainContent track
               onMusicFileUpload={(e) => Handlers.handleMusicFileUpload(e, setSelectedMusicFile, setUploadedMusicBackendUrl, setMusicErrorMessage, t)}
-              onGenerateMusicClick={doHandleGenerateMusicClick}
+              onGenerateMusicClick={handleGenerateMusicFeatureComingSoon} // Use the new alert handler
               isGeneratingMusic={musicTaskStatus === STATUS_PENDING || musicTaskStatus === STATUS_PROCESSING || musicTaskStatus === STATUS_INITIALIZING}
               selectedMusicFile={selectedMusicFile}
               uploadedMusicBackendUrl={uploadedMusicBackendUrl} // Pass new prop
@@ -685,6 +697,7 @@ function App() {
               musicTaskStatus={musicTaskStatus}
               musicErrorMessage={musicErrorMessage}
               isCreatingVideo={isCreatingVideo} // Pass this to disable controls
+              onClearMusicSelection={handleClearMusicSelection} // Pass the new handler
             />
             <HistorySidebar
               theme={theme}

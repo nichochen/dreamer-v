@@ -464,7 +464,7 @@ def upload_music_route():
         try:
             file.save(save_path)
             # Return a relative path that the frontend can use with the new serving endpoint
-            file_serve_path = f"/api/user_uploaded_music/{filename}"
+            file_serve_path = f"/user_uploaded_music/{filename}"
             return jsonify({"message": "Music uploaded successfully", "filePath": file_serve_path}), 201
         except Exception as e:
             print(f"Error saving uploaded music file: {e}")

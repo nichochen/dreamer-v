@@ -86,7 +86,7 @@ export const handleMusicFileUpload = async (event, setSelectedMusicFile, setUplo
     const backendFilePath = await apiUploadMusicFile(file, t); // api.js function
 
     if (backendFilePath) {
-      setUploadedMusicBackendUrl(BACKEND_URL + backendFilePath); // Prepend BACKEND_URL to make it a full URL
+      setUploadedMusicBackendUrl(BACKEND_URL + backendFilePath); // Use the path directly
       setMusicErrorMessage(''); // Clear "uploading" message or any previous error
       // setSelectedMusicFile(file); // Already set
     } else {
