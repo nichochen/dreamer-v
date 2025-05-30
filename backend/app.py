@@ -875,10 +875,11 @@ def create_composite_video_route():
     
     new_composite_task = VideoGenerationTask(
         prompt=composite_prompt,
-        model="COMPOSITE_VIDEO", 
+        model=DEFAULT_VIDEO_MODEL, # Use default VEO model identifier
         status="pending",
         gcs_output_bucket=data.get('gcs_output_bucket', DEFAULT_OUTPUT_GCS_BUCKET),
         user=user_email
+        # Internally, this task will still be processed by _run_composite_video_creation
     )
     db.session.add(new_composite_task)
     db.session.commit()
