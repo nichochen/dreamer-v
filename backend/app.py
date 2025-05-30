@@ -26,6 +26,7 @@ load_dotenv(dotenv_path=dotenv_path)
 PROJECT_ID = os.getenv("GCP_PROJECT_ID")
 LOCATION = os.getenv("GCP_REGION") # Assuming GCP_REGION is used for LOCATION
 DEFAULT_OUTPUT_GCS_BUCKET = os.getenv("VIDEO_GCS_BUCKET")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "iamsuperuser-2282@dreamer-v.io")
 
 # --- Flask App Initialization ---
 app = Flask(__name__)
@@ -657,15 +658,20 @@ def task_status_route(task_id):
 
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks_route():
-    user_email = get_processed_user_email_from_header()
+    current_user_email = get_processed_user_email_from_header() # Gets header email or "public@dreamer-v"
     
-    # Query tasks for the specific user, order by creation date descending
-    # Limit to a certain number, e.g., 50
-    if user_email:
-        tasks = VideoGenerationTask.query.filter_by(user=user_email).order_by(VideoGenerationTask.created_at.desc()).limit(50).all()
+    if current_user_email == ADMIN_EMAIL:
+        # Admin user sees all tasks
+        print(f"Admin user {ADMIN_EMAIL} requesting all tasks.")
+        tasks = VideoGenerationTask.query.order_by(VideoGenerationTask.created_at.desc()).limit(100).all()
+    elif current_user_email: 
+        # Non-admin user (could be their actual email or "public@dreamer-v" if unauthenticated)
+        print(f"User {current_user_email} requesting their tasks.")
+        tasks = VideoGenerationTask.query.filter_by(user=current_user_email).order_by(VideoGenerationTask.created_at.desc()).limit(100).all()
     else:
-        # If user_email is somehow still None/empty (e.g. if we change the fallback logic above)
-        # return an empty list to prevent showing all tasks.
+        # This case should not be reached if get_processed_user_email_from_header has a default fallback.
+        # Safeguard: return no tasks if current_user_email is unexpectedly empty.
+        print("Warning: No user email identified for /api/tasks, returning empty list.")
         tasks = []
         
     return jsonify([task.to_dict() for task in tasks]), 200
@@ -747,7 +753,7 @@ def health_check():
 
 @app.route('/api/user-info', methods=['GET'])
 def user_info():
-    user_email = get_processed_user_email_from_header(default_fallback_email="user@dreamer-v.io")
+    user_email = get_processed_user_email_from_header()
     return jsonify({"email": user_email}), 200
 
 # --- Composite Video Creation ---
