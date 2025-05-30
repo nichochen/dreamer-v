@@ -503,17 +503,19 @@ function App() {
   });
   
   const doHandleCreateVideoClick = () => Handlers.handleCreateVideoClick({
-     createModeClips, 
+     createModeClips,
+     uploadedMusicBackendUrl, // Added
+     generatedMusicUrl,     // Added
      setErrorMessage, 
      setIsCreatingVideo, 
      t,
      setTaskId, 
      setTaskStatus, 
      fetchHistoryTasks: memoizedFetchHistoryTasks,
-     setActiveView, // Pass setActiveView
-     setCreateModeClips, // Pass setCreateModeClips to clear the track
-     setSelectedClipInTrack, // Pass to clear selected clip in track
-     setActiveCreateModeVideoSrc, // Pass to clear video player in create mode
+     setActiveView, 
+     setCreateModeClips, 
+     setSelectedClipInTrack, 
+     setActiveCreateModeVideoSrc, 
   });
 
   const handleGenerateMusicFeatureComingSoon = () => {

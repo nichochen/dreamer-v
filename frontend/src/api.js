@@ -601,7 +601,8 @@ export const uploadMusicFile = async (musicFile, t) => {
 };
 
 export const createCompositeVideo = async ({
-  clips, // Array of clip objects, e.g., { task_id: string, ... }
+  clips, 
+  musicFilePath, // New parameter for the music file path
   setTaskId,
   setTaskStatus,
   fetchHistoryTasks,
@@ -609,18 +610,25 @@ export const createCompositeVideo = async ({
   t,
 }) => {
   try {
-    const clipData = clips.map(clip => ({ 
-      task_id: clip.task_id, 
-      // Potentially include other relevant clip info if needed by backend
-      // e.g., local_video_path: clip.local_video_path (though backend should derive this from task_id)
+    const clipData = clips.map(clip => ({
+      task_id: clip.task_id,
     }));
 
-    const response = await fetch(`${BACKEND_URL}/create_composite_video`, { // Ensure this endpoint matches backend
+    const payload = {
+      clips: clipData,
+      prompt: 'Composite video from clips', // Default prompt or make it configurable
+    };
+
+    if (musicFilePath) {
+      payload.music_file_path = musicFilePath;
+    }
+
+    const response = await fetch(`${BACKEND_URL}/create_composite_video`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ clips: clipData, prompt: 'Create a short video from clips' }), // Sending task_ids and a default prompt
+      body: JSON.stringify(payload),
     });
 
     const data = await response.json();

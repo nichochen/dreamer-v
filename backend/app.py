@@ -8,7 +8,7 @@ import base64 # Added for image encoding
 import cv2 # For thumbnail generation
 from dotenv import load_dotenv # For loading .env files
 from google.cloud import storage # For GCS download
-from moviepy import VideoFileClip, concatenate_videoclips # For video concatenation
+from moviepy import VideoFileClip, concatenate_videoclips, AudioFileClip, CompositeAudioClip # For video concatenation and audio
 from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS # Import CORS
@@ -97,6 +97,7 @@ class VideoGenerationTask(db.Model):
     user = db.Column(db.String(255), nullable=True) # New field for user email
     created_at = db.Column(db.Float, default=time.time)
     updated_at = db.Column(db.Float, default=time.time, onupdate=time.time)
+    music_file_path = db.Column(db.String(1024), nullable=True, default=None) # Path to music file for composite video
 
     def __repr__(self):
         return (f"<VideoGenerationTask(id='{self.id}', prompt='{self.prompt[:30]}...', "
@@ -104,7 +105,7 @@ class VideoGenerationTask(db.Model):
                 f"camera_control='{self.camera_control}', duration_seconds={self.duration_seconds}, "
                 f"status='{self.status}', image_filename='{self.image_filename}', "
                 f"video_uri='{self.video_uri}', user='{self.user}', "
-                f"last_frame_filename='{self.last_frame_filename}')>")
+                f"last_frame_filename='{self.last_frame_filename}', music_file_path='{self.music_file_path}')>")
 
     def to_dict(self):
         video_url_http = None
@@ -135,7 +136,8 @@ class VideoGenerationTask(db.Model):
             "aspect_ratio": self.aspect_ratio,
             "duration_seconds": self.duration_seconds,
             "gcs_output_bucket": self.gcs_output_bucket,
-            "user": self.user
+            "user": self.user,
+            "music_file_path": getattr(self, 'music_file_path', None) # Safely access music_file_path
         }
 
 # --- SQLAlchemy Model for MusicGenerationTask ---
@@ -757,7 +759,7 @@ def user_info():
     return jsonify({"email": user_email}), 200
 
 # --- Composite Video Creation ---
-def _run_composite_video_creation(task_id, source_clip_task_ids_and_prompts):
+def _run_composite_video_creation(task_id, source_clip_task_ids_and_prompts, music_file_path_param=None):
     with app.app_context():
         composite_task = VideoGenerationTask.query.get(task_id)
         if not composite_task:
@@ -773,8 +775,37 @@ def _run_composite_video_creation(task_id, source_clip_task_ids_and_prompts):
         total_duration = 0
         first_clip_aspect_ratio = "16:9" # Default
         final_clip_moviepy = None # Initialize to ensure it's closable in finally
+        audio_clip_moviepy = None # Initialize for audio clip
 
         try:
+            print(f"Composite video creation: received music_file_path_param: {music_file_path_param}") # Log received param
+            if music_file_path_param:
+                # Determine absolute path for music file
+                absolute_music_path = None
+                if music_file_path_param.startswith("/user_uploaded_music/"):
+                    base_music_filename = os.path.basename(music_file_path_param)
+                    absolute_music_path = os.path.join(user_uploaded_music_dir, base_music_filename)
+                elif music_file_path_param.startswith("/music/"):
+                    base_music_filename = os.path.basename(music_file_path_param)
+                    absolute_music_path = os.path.join(generated_music_dir, base_music_filename)
+                else:
+                    raise ValueError(f"Invalid music file path prefix: {music_file_path_param}")
+                
+                print(f"Determined absolute_music_path: {absolute_music_path}") # Log absolute path
+
+                if not os.path.exists(absolute_music_path):
+                    print(f"Music file NOT FOUND at {absolute_music_path}") # Log if not found
+                    raise ValueError(f"Music file not found at {absolute_music_path}")
+                
+                audio_clip_moviepy = AudioFileClip(absolute_music_path)
+                if audio_clip_moviepy:
+                    print(f"Successfully loaded audio_clip_moviepy from {absolute_music_path}") # Log success
+                else:
+                    print(f"Failed to load audio_clip_moviepy from {absolute_music_path}") # Log failure
+                composite_task.music_file_path = music_file_path_param
+            else:
+                print("No music_file_path_param provided for composite video.") # Log if no param
+
             for i, clip_info in enumerate(source_clip_task_ids_and_prompts):
                 source_task_id = clip_info['task_id']
                 source_task = VideoGenerationTask.query.get(source_task_id)
@@ -803,12 +834,37 @@ def _run_composite_video_creation(task_id, source_clip_task_ids_and_prompts):
             db.session.commit()
 
             final_clip_moviepy = concatenate_videoclips(video_clips_to_concatenate, method="compose")
-            
+
+            if audio_clip_moviepy:
+                video_duration = final_clip_moviepy.duration
+                audio_duration = audio_clip_moviepy.duration
+
+                if audio_duration < video_duration:
+                    # Loop audio to match video duration
+                    num_loops = int(video_duration / audio_duration) + 1
+                    looped_clips = [audio_clip_moviepy] * num_loops
+                    final_audio = CompositeAudioClip(looped_clips)
+                    # Trim the looped audio to the exact video duration
+                    final_audio = final_audio.subclipped(0, video_duration)
+                else:
+                    # Truncate audio to match video duration
+                    final_audio = audio_clip_moviepy.subclipped(0, video_duration)
+                
+                final_clip_moviepy = final_clip_moviepy.with_audio(final_audio) # Use with_audio as suggested
+
             composite_video_filename = f"{composite_task.id}.mp4"
             local_composite_video_full_path = os.path.join(videos_dir, composite_video_filename)
-            # Ensure audio_codec is specified if clips have audio
-            final_clip_moviepy.write_videofile(local_composite_video_full_path, codec="libx264", audio_codec="aac", threads=4, logger='bar')
-
+            
+            has_audio = final_clip_moviepy.audio is not None
+            current_audio_codec = "aac" if has_audio else None
+            
+            final_clip_moviepy.write_videofile(
+                local_composite_video_full_path, 
+                codec="libx264", 
+                audio_codec=current_audio_codec, 
+                threads=4, 
+                logger='bar'
+            )
 
             composite_task.local_video_path = f"/videos/{composite_video_filename}"
             print(f"Composite video for task {task_id} saved locally to {local_composite_video_full_path}")
@@ -850,11 +906,16 @@ def _run_composite_video_creation(task_id, source_clip_task_ids_and_prompts):
             traceback.print_exc()
         finally:
             for clip_obj in video_clips_to_concatenate:
-                if hasattr(clip_obj, 'reader') and clip_obj.reader:
+                if hasattr(clip_obj, 'reader') and clip_obj.reader: 
                     clip_obj.close()
-            if final_clip_moviepy and hasattr(final_clip_moviepy, 'reader') and final_clip_moviepy.reader:
+            if final_clip_moviepy and hasattr(final_clip_moviepy, 'reader') and final_clip_moviepy.reader: 
                  final_clip_moviepy.close()
-            
+            if audio_clip_moviepy and hasattr(audio_clip_moviepy, 'reader') and audio_clip_moviepy.reader: # Close original audio clip
+                audio_clip_moviepy.close()
+            # final_audio is a new object, ensure it's closed if it has a reader (though often not directly needed for CompositeAudioClip)
+            if 'final_audio' in locals() and final_audio and hasattr(final_audio, 'reader') and final_audio.reader:
+                final_audio.close()
+
             composite_task.updated_at = time.time()
             db.session.commit()
 
@@ -864,8 +925,9 @@ def create_composite_video_route():
     if not data or 'clips' not in data or not isinstance(data['clips'], list) or not data['clips']:
         return jsonify({"error": "A non-empty list of 'clips' (each with a 'task_id') is required"}), 400
 
-    source_clips_info = data['clips'] 
+    source_clips_info = data['clips']
     composite_prompt = data.get('prompt', "Composite video from selected clips")
+    music_file_path = data.get('music_file_path') 
 
     user_email = get_processed_user_email_from_header()
 
@@ -875,16 +937,16 @@ def create_composite_video_route():
     
     new_composite_task = VideoGenerationTask(
         prompt=composite_prompt,
-        model=DEFAULT_VIDEO_MODEL, # Use default VEO model identifier
+        model=DEFAULT_VIDEO_MODEL, 
         status="pending",
         gcs_output_bucket=data.get('gcs_output_bucket', DEFAULT_OUTPUT_GCS_BUCKET),
-        user=user_email
-        # Internally, this task will still be processed by _run_composite_video_creation
+        user=user_email,
+        music_file_path=music_file_path 
     )
     db.session.add(new_composite_task)
     db.session.commit()
     
-    thread = threading.Thread(target=_run_composite_video_creation, args=(new_composite_task.id, source_clips_info))
+    thread = threading.Thread(target=_run_composite_video_creation, args=(new_composite_task.id, source_clips_info, music_file_path))
     thread.start()
     
     return jsonify({"message": "Composite video creation started", "task_id": new_composite_task.id}), 202

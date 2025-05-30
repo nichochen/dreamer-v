@@ -29,7 +29,9 @@ CREATE_TABLE_SQL = """
     created_at FLOAT,
     updated_at FLOAT,
     video_uri VARCHAR(1024),
-    user VARCHAR(255)); -- Added user column
+    user VARCHAR(255),
+    music_file_path VARCHAR(1024) -- Added music_file_path column
+);
 """
 
 def initialize_schema(cursor):
@@ -78,6 +80,22 @@ def migrate_schema_add_user_column(cursor):
     else:
         print("'user' column already exists.")
 
+def migrate_schema_add_music_file_path_column(cursor):
+    """Adds the 'music_file_path' column to 'video_generation_task' if it doesn't exist."""
+    print("Checking for 'music_file_path' column in 'video_generation_task' table...")
+    cursor.execute("PRAGMA table_info(video_generation_task);")
+    columns = [info[1] for info in cursor.fetchall()]
+    
+    if 'music_file_path' not in columns:
+        print("Adding 'music_file_path' column to 'video_generation_task' table...")
+        try:
+            cursor.execute("ALTER TABLE video_generation_task ADD COLUMN music_file_path VARCHAR(1024);")
+            print("'music_file_path' column added successfully.")
+        except sqlite3.Error as e:
+            print(f"Error adding 'music_file_path' column: {e}.")
+    else:
+        print("'music_file_path' column already exists.")
+
 def migrate_data_backfill_user_column(cursor):
     """Backfills the 'user' column with 'public@dreamer-v' for existing tasks where user is NULL."""
     print("Backfilling 'user' column for existing tasks with 'public@dreamer-v'...")
@@ -111,9 +129,10 @@ def setup_database():
         else:
             print("Database file found. Ensuring 'video_generation_task' table exists.")
             
-        initialize_schema(cursor) # Ensures table structure based on CREATE_TABLE_SQL (now with user)
-        migrate_schema_add_user_column(cursor) # Adds user column if missing from an older schema
-        migrate_data_backfill_user_column(cursor) # Backfills user data
+        initialize_schema(cursor) 
+        migrate_schema_add_user_column(cursor) 
+        migrate_schema_add_music_file_path_column(cursor) # Add music_file_path column
+        migrate_data_backfill_user_column(cursor) 
         
         conn.commit()
         print("Database setup and migration successful!")

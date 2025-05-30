@@ -284,10 +284,12 @@ export const handleHistoryItemClick = async ({
 
 export const handleCreateVideoClick = async ({
   createModeClips,
+  uploadedMusicBackendUrl, // Added
+  generatedMusicUrl,     // Added
   setErrorMessage,
   setIsCreatingVideo,
-  setTaskId, 
-  setTaskStatus, 
+  setTaskId,
+  setTaskStatus,
   fetchHistoryTasks,
   setActiveView,
   setCreateModeClips,
@@ -295,22 +297,44 @@ export const handleCreateVideoClick = async ({
   setActiveCreateModeVideoSrc,
   t,
 }) => {
-  // The check for createModeClips.length < 2 is now handled by the button's disabled state in Sidebar.js
-  // However, keeping a safeguard here is good practice.
-  if (createModeClips.length < 2) { 
-    setErrorMessage(t('errorMinClipsToCreateVideo')); // Assuming a new translation key
+  if (createModeClips.length < 2) {
+    setErrorMessage(t('errorMinClipsToCreateVideo'));
     return;
   }
   setIsCreatingVideo(true);
   setErrorMessage('');
-  console.log("Initiating video creation with clips:", createModeClips);
+
+  let musicFilePath = null;
+  if (uploadedMusicBackendUrl) {
+    // uploadedMusicBackendUrl is a full URL like http://localhost:5001/api/user_uploaded_music/filename.mp3
+    // We need to extract the relative path: /user_uploaded_music/filename.mp3
+    try {
+      const url = new URL(uploadedMusicBackendUrl);
+      musicFilePath = url.pathname.replace('/api', ''); // Remove /api prefix if backend serves from /api/user_uploaded_music
+    } catch (e) {
+      console.error("Error parsing uploadedMusicBackendUrl:", e);
+      // Fallback or error handling if URL is malformed
+      musicFilePath = uploadedMusicBackendUrl; // Or set to null and show error
+    }
+  } else if (generatedMusicUrl) {
+    // generatedMusicUrl is already a relative path like /music/filename.wav or /api/music/filename.wav
+    // Ensure it's consistently relative to the domain root for the backend.
+    // If it includes /api, remove it.
+    if (generatedMusicUrl.startsWith('/api')) {
+        musicFilePath = generatedMusicUrl.substring(4); // Remove /api
+    } else {
+        musicFilePath = generatedMusicUrl;
+    }
+  }
+  
+  console.log("Initiating video creation with clips:", createModeClips, "and music:", musicFilePath);
 
   try {
-    // Call the API function. It will set taskId and taskStatus on success.
-    const newCompositeTask = await createCompositeVideo({ // Assume it returns the new task_id or relevant data
+    await createCompositeVideo({
       clips: createModeClips,
-      setTaskId, // This will be called by createCompositeVideo
-      setTaskStatus, // This will be called by createCompositeVideo
+      musicFilePath: musicFilePath, // Pass the determined music file path
+      setTaskId,
+      setTaskStatus,
       fetchHistoryTasks,
       setErrorMessage,
       t,
