@@ -65,6 +65,14 @@ db = SQLAlchemy(app)
 # --- Video Generation Configuration ---
 DEFAULT_VIDEO_MODEL = "veo-2.0-generate-001"
 
+# --- Helper function to get user email ---
+def get_processed_user_email_from_header(default_fallback_email="public@dreamer-v"):
+    user_email = request.headers.get('X-Goog-Authenticated-User-Email')
+    if user_email:
+        if user_email.startswith("accounts.google.com:"):
+            return user_email[len("accounts.google.com:"):]
+        return user_email
+    return default_fallback_email
 
 # --- SQLAlchemy Model for VideoGenerationTask ---
 class VideoGenerationTask(db.Model):
@@ -85,6 +93,7 @@ class VideoGenerationTask(db.Model):
     last_frame_gcs_uri = db.Column(db.String(1024), nullable=True) # GCS URI of the uploaded last frame image
     video_uri = db.Column(db.String(1024), nullable=True) # User-added: new video_uri attribute
     error_message = db.Column(db.String(1024), nullable=True)
+    user = db.Column(db.String(255), nullable=True) # New field for user email
     created_at = db.Column(db.Float, default=time.time)
     updated_at = db.Column(db.Float, default=time.time, onupdate=time.time)
 
@@ -93,7 +102,7 @@ class VideoGenerationTask(db.Model):
                 f"model='{self.model}', aspect_ratio='{self.aspect_ratio}', "
                 f"camera_control='{self.camera_control}', duration_seconds={self.duration_seconds}, "
                 f"status='{self.status}', image_filename='{self.image_filename}', "
-                f"video_uri='{self.video_uri}', "
+                f"video_uri='{self.video_uri}', user='{self.user}', "
                 f"last_frame_filename='{self.last_frame_filename}')>")
 
     def to_dict(self):
@@ -124,7 +133,8 @@ class VideoGenerationTask(db.Model):
             "updated_at": self.updated_at,
             "aspect_ratio": self.aspect_ratio,
             "duration_seconds": self.duration_seconds,
-            "gcs_output_bucket": self.gcs_output_bucket
+            "gcs_output_bucket": self.gcs_output_bucket,
+            "user": self.user
         }
 
 # --- SQLAlchemy Model for MusicGenerationTask ---
@@ -473,6 +483,8 @@ def generate_video_route():
     duration_seconds = int(request.form.get('duration', 5))
     gcs_output_bucket = request.form.get('gcs_output_bucket', None)
 
+    user_email = get_processed_user_email_from_header()
+
     image_file = request.files.get('image_file')
     image_filename_to_save = None
     if image_file and allowed_file(image_file.filename):
@@ -501,7 +513,8 @@ def generate_video_route():
         duration_seconds=duration_seconds,
         gcs_output_bucket=gcs_output_bucket,
         image_filename=image_filename_to_save,
-        last_frame_filename=last_frame_filename_to_save
+        last_frame_filename=last_frame_filename_to_save,
+        user=user_email
     )
     db.session.add(new_task)
     db.session.commit()
@@ -529,6 +542,10 @@ def extend_video_route(original_task_id):
     duration_seconds = int(request.form.get('duration', 8)) # Default extension duration for exp model
     gcs_output_bucket = request.form.get('gcs_output_bucket', original_task.gcs_output_bucket or DEFAULT_OUTPUT_GCS_BUCKET)
 
+    # For extend, we want to try header, then original task's user, then the ultimate fallback.
+    user_email_from_header = get_processed_user_email_from_header(default_fallback_email=None) # Get raw email or None
+    user_email = user_email_from_header or original_task.user or "public@dreamer-v" # Apply custom fallback chain
+
     new_task = VideoGenerationTask(
         prompt=prompt_text,
         model=model, # This will be "veo-2.0-generate-exp"
@@ -540,7 +557,8 @@ def extend_video_route(original_task_id):
         # image_filename and last_frame_filename are typically not used when extending a video,
         # but could be added if the VEO API supports it for video-to-video.
         # For now, we assume extension primarily uses the video_uri.
-        status="pending" # Initial status
+        status="pending", # Initial status
+        user=user_email
     )
     db.session.add(new_task)
     db.session.commit()
@@ -639,9 +657,17 @@ def task_status_route(task_id):
 
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks_route():
-    # Query tasks, order by creation date descending (newest first)
-    # Limit to a certain number, e.g., 50, to avoid overly large responses if there are many tasks
-    tasks = VideoGenerationTask.query.order_by(VideoGenerationTask.created_at.desc()).limit(50).all()
+    user_email = get_processed_user_email_from_header()
+    
+    # Query tasks for the specific user, order by creation date descending
+    # Limit to a certain number, e.g., 50
+    if user_email:
+        tasks = VideoGenerationTask.query.filter_by(user=user_email).order_by(VideoGenerationTask.created_at.desc()).limit(50).all()
+    else:
+        # If user_email is somehow still None/empty (e.g. if we change the fallback logic above)
+        # return an empty list to prevent showing all tasks.
+        tasks = []
+        
     return jsonify([task.to_dict() for task in tasks]), 200
 
 @app.route('/api/task/<task_id>', methods=['DELETE'])
@@ -721,13 +747,7 @@ def health_check():
 
 @app.route('/api/user-info', methods=['GET'])
 def user_info():
-    user_email = request.headers.get('X-Goog-Authenticated-User-Email')
-    # remove "accounts.google.com:" prefix if it exists
-    if user_email and user_email.startswith("accounts.google.com:"):
-        user_email = user_email[len("accounts.google.com:"):]
-    # Fallback for local development if header is not present
-    if not user_email:
-        user_email = "user@dreamer-v.io" # Or None, depending on how frontend should handle it
+    user_email = get_processed_user_email_from_header(default_fallback_email="user@dreamer-v.io")
     return jsonify({"email": user_email}), 200
 
 # --- Composite Video Creation ---
@@ -839,7 +859,9 @@ def create_composite_video_route():
         return jsonify({"error": "A non-empty list of 'clips' (each with a 'task_id') is required"}), 400
 
     source_clips_info = data['clips'] 
-    composite_prompt = data.get('prompt', "Composite video from selected clips") 
+    composite_prompt = data.get('prompt', "Composite video from selected clips")
+
+    user_email = get_processed_user_email_from_header()
 
     for clip_info in source_clips_info:
         if 'task_id' not in clip_info:
@@ -849,7 +871,8 @@ def create_composite_video_route():
         prompt=composite_prompt,
         model="COMPOSITE_VIDEO", 
         status="pending",
-        gcs_output_bucket=data.get('gcs_output_bucket', DEFAULT_OUTPUT_GCS_BUCKET) 
+        gcs_output_bucket=data.get('gcs_output_bucket', DEFAULT_OUTPUT_GCS_BUCKET),
+        user=user_email
     )
     db.session.add(new_composite_task)
     db.session.commit()
