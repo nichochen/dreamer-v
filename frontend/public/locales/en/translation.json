@@ -51,6 +51,7 @@
   "videoTagNotSupported": "Your browser does not support the video tag.",
   "videoDataUnavailable": "Video data is unavailable for this completed task.",
   "startDreamingAltText": "Start dreaming!",
+  "dreamViewPlaceholderHint": "Enter a prompt in the sidebar and click Generate to create your video!",
   "resizeVideoAreaTooltip": "Drag to resize video area (Current: {{height}}px)",
   "taskDetailTitle": "Task Detail",
   "taskIDLabel": "Task ID:",

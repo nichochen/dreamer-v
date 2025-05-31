@@ -284,7 +284,8 @@ body {
 /* Styles for the resizable video area and its handle */
 .video-display-card {
   /* position: relative; /* Not strictly needed if handle is in normal flow */
-  /* overflow: hidden; /* To contain the handle if it were absolutely positioned and could overflow */
+  overflow: hidden; /* To contain the handle if it were absolutely positioned and could overflow */
+  border-radius: 20px; /* Added for rounded corners */
 }
 
 .video-resize-handle {

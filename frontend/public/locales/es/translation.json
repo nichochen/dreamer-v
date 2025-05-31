@@ -51,6 +51,7 @@
   "videoTagNotSupported": "Tu navegador no soporta la etiqueta de video.",
   "videoDataUnavailable": "Los datos del video no están disponibles para esta tarea completada.",
   "startDreamingAltText": "¡Empieza a soñar!",
+  "dreamViewPlaceholderHint": "¡Introduce una indicación en la barra lateral y haz clic en Generar para crear tu vídeo!",
   "resizeVideoAreaTooltip": "Arrastra para redimensionar el área del video (Actual: {{height}}px)",
   "taskDetailTitle": "Detalle de la Tarea",
   "taskIDLabel": "ID de Tarea:",

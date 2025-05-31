@@ -51,6 +51,7 @@
   "videoTagNotSupported": "お使いのブラウザはビデオタグをサポートしていません。",
   "videoDataUnavailable": "この完了したタスクのビデオデータは利用できません。",
   "startDreamingAltText": "夢を見始めましょう！",
+  "dreamViewPlaceholderHint": "サイドバーにプロンプトを入力し、「生成」をクリックしてビデオを作成してください！",
   "resizeVideoAreaTooltip": "ドラッグしてビデオ領域のサイズを変更 (現在: {{height}}px)",
   "taskDetailTitle": "タスク詳細",
   "taskIDLabel": "タスクID:",

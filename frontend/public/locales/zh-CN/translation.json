@@ -51,6 +51,7 @@
   "videoTagNotSupported": "您的浏览器不支持视频标签。",
   "videoDataUnavailable": "此已完成任务的视频数据不可用。",
   "startDreamingAltText": "开始梦想吧！",
+  "dreamViewPlaceholderHint": "在侧边栏输入提示并点击“生成”以创建您的视频！",
   "resizeVideoAreaTooltip": "拖动以调整视频区域大小 (当前: {{height}}px)",
   "taskDetailTitle": "任务详情",
   "taskIDLabel": "任务ID:",

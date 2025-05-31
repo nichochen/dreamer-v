@@ -95,12 +95,9 @@ function HistorySidebar({
                         </div>
                       </div>
                     ) : (task.status === STATUS_PROCESSING || task.status === STATUS_PENDING || task.status === STATUS_INITIALIZING || task.status === STATUS_COMPLETED_WAITING_URI) ? (
-                      <img
-                        src="/gears.gif"
-                        alt={t('historyProcessingAlt')}
-                        className="img-thumbnail mb-2"
-                        style={{ width: '80px', height: '80px' }}
-                      />
+                      <div className="me-2" title={t('videoTrackHeadIconTitle', "Start of video track")}>
+                <i className={`bi bi-film ${theme === 'dark' ? 'text-light' : 'text-dark'}`} style={{ fontSize: '1.8rem', opacity: 0.8 }}></i>
+              </div>
                     ) : task.status === STATUS_FAILED || task.status === STATUS_ERROR ? (
                       <img
                         src="/fail.png"

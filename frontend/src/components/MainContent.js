@@ -57,6 +57,7 @@ function MainContent({
 }) {
   const musicFileInputRef = useRef(null);
   const [uploadedMusicSrc, setUploadedMusicSrc] = useState(null);
+  const [isHoveringVideo, setIsHoveringVideo] = useState(false); // Added for video hover effect
 
   useEffect(() => {
     if (selectedMusicFile) {
@@ -79,10 +80,15 @@ function MainContent({
       {activeView === 'dream' && (
         <div className="d-flex flex-column flex-grow-1"> {/* Allow this section to grow vertically */}
           <div ref={videoContainerRef} className="card video-display-card">
-            <div className="card-body" style={{ height: `${videoHeight}px`, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+            <div
+              className="card-body bg-black"
+              style={{ height: `${videoHeight}px`, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}
+              onMouseEnter={() => activeView === 'dream' && setIsHoveringVideo(true)}
+              onMouseLeave={() => activeView === 'dream' && setIsHoveringVideo(false)}
+            >
               {
                 (taskStatus === STATUS_PROCESSING || taskStatus === STATUS_INITIALIZING || taskStatus === STATUS_PENDING || taskStatus === STATUS_COMPLETED_WAITING_URI) ? (
-                  <div className="flashlight-loader w-100 h-100">
+                  <div className="flashlight-loader w-100 h-100 bg-black">
                     <p>{taskStatus === STATUS_COMPLETED_WAITING_URI ? t(STATUS_COMPLETED_WAITING_URI + 'Status') : t('processingMessage')}</p>
                   </div>
                 ) : (taskStatus === STATUS_FAILED || taskStatus === STATUS_ERROR) ? (
@@ -92,7 +98,28 @@ function MainContent({
                   </div>
                 ) : taskStatus === STATUS_COMPLETED ? (
                   videoGcsUri ? (
-                    <video key={videoGcsUri} ref={videoRef} controls autoPlay loop src={videoGcsUri} className="w-100" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', backgroundColor: theme === 'dark' ? '#343a40' : '#000000' }}>
+                    <video
+                      key={videoGcsUri}
+                      ref={videoRef}
+                      controls
+                      autoPlay
+                      loop
+                      src={videoGcsUri}
+                      // className="w-100" // Removed to allow dynamic width changes
+                      style={{
+                        objectFit: 'contain',
+                        backgroundColor: theme === 'dark' ? '#000000' : '#000000', // Original background colors
+                        transition: 'max-width 0.2s ease-in-out, max-height 0.2s ease-in-out, min-width 0.2s ease-in-out',
+                        ...(isHoveringVideo ? { // MOUSE OVER
+                          maxHeight: '100%',
+                          maxWidth: '100%',
+                        } : { // MOUSE OUT (default)
+                          maxHeight: '140%',
+                          maxWidth: '140%',
+                          minWidth: '140%',
+                        })
+                      }}
+                    >
                       {t('videoTagNotSupported')}
                     </video>
                   ) : (
@@ -107,12 +134,14 @@ function MainContent({
                     </div>
                   </div>
                 ) : (
-                  <div className={`${theme === 'dark' ? 'bg-secondary' : 'bg-light'} border rounded d-flex flex-column align-items-center justify-content-center w-100 h-100`}>
-                    <img src="/dream.png" alt={t('startDreamingAltText')} style={{ width: '150px', height: '150px', opacity: 0.7 }} />
+                  <div className={`${theme === 'dark' ? 'bg-black' : 'bg-light'} border rounded d-flex flex-column align-items-center justify-content-center w-100 h-100`}>
+                <i className={`bi bi-film ${theme === 'dark' ? 'text-light' : 'text-dark'}`} style={{ fontSize: '3.8rem', opacity: 0.8 }}></i>
+                <p className={`mt-2 ${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'}`}>{t('dreamViewPlaceholderHint')}</p>
                   </div>
                 )
               }
             </div>
+            {activeView === 'dream' && (
             <div
               className="video-resize-handle"
               onMouseDown={onMouseDownResize}
@@ -120,6 +149,7 @@ function MainContent({
             >
               <i className="bi bi-grip-horizontal"></i>
             </div>
+            )}
           </div>
           {taskId && activeView === 'dream' && (
             <div className="card mt-3">
@@ -190,16 +220,17 @@ function MainContent({
           <div className="card video-display-card">
             <div className="card-body d-flex justify-content-center align-items-center" style={{ overflow: 'hidden', height: `${videoHeight}px` }}>
               {activeCreateModeVideoSrc ? (
-                <video key={activeCreateModeVideoSrc} ref={createModeVideoRef} controls autoPlay loop src={activeCreateModeVideoSrc} className="w-100" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', backgroundColor: theme === 'dark' ? '#212529' : '#f8f9fa' }}>
+                <video key={activeCreateModeVideoSrc} ref={createModeVideoRef} controls autoPlay loop src={activeCreateModeVideoSrc}  style={{ maxHeight: '140%', maxWidth: '140%', minWidth:'140%', minHeight:'140%', objectFit: 'contain', backgroundColor: theme === 'dark' ? '#000000' : '#f8f9fa' }}>
                   {t('videoTagNotSupported')}
                 </video>
               ) : (
-                <div className={`${theme === 'dark' ? 'bg-secondary' : 'bg-light'} border rounded d-flex flex-column align-items-center justify-content-center w-100 h-100`}>
+                <div className={`${theme === 'dark' ? 'bg-black' : 'bg-light'} border rounded d-flex flex-column align-items-center justify-content-center w-100 h-100`}>
                   <i className="bi bi-film" style={{ fontSize: '3rem', opacity: 0.5 }}></i>
                   <p className="mt-2">{t('createVideoPlaceholder')}</p>
                 </div>
               )}
             </div>
+            {activeView === 'dream' && (
             <div
               className="video-resize-handle"
               onMouseDown={onMouseDownResize}
@@ -207,6 +238,7 @@ function MainContent({
             >
               <i className="bi bi-grip-horizontal"></i>
             </div>
+            )}
           </div>
           <div className={`video-clip-track card mt-2 ${theme === 'dark' ? 'bg-dark' : 'bg-light'}`}>
             <div className="card-body p-2 d-flex align-items-center"> {/* Changed to flex-row and align-items-center */}
