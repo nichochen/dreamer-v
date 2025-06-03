@@ -1114,4 +1114,4 @@ if __name__ == '__main__':
     print(f"Using Project ID: {PROJECT_ID}, Location: {LOCATION}")
     print(f"Default Output GCS Bucket: {DEFAULT_OUTPUT_GCS_BUCKET}")
     print(f"Default Video Model: {DEFAULT_VIDEO_MODEL}")
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=False, host='0.0.0.0', port=5001)

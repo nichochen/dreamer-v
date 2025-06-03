@@ -81,7 +81,7 @@ function MainContent({
         <div className="d-flex flex-column flex-grow-1"> {/* Allow this section to grow vertically */}
           <div ref={videoContainerRef} className="card video-display-card">
             <div
-              className="card-body bg-black"
+              className="card-body ${theme === 'dark' ? 'bg-dark text-light' : 'bg-secondary'}"
               style={{ height: `${videoHeight}px`, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}
               onMouseEnter={() => activeView === 'dream' && setIsHoveringVideo(true)}
               onMouseLeave={() => activeView === 'dream' && setIsHoveringVideo(false)}

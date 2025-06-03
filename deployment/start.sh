@@ -29,7 +29,8 @@ echo "Starting Flask backend..."
 cd /app/backend
 # The app.py already runs on 0.0.0.0 and port 5001.
 # We'll send its output to stdout/stderr for Docker logs.
-python app.py &
+# python app.py & # Replaced with gunicorn
+gunicorn -w 3 -b 0.0.0.0:5001 app:app &
 
 # Wait a few seconds for the backend to initialize (optional, but can be helpful)
 sleep 5 
