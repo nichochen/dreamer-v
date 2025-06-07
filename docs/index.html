@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dreamer-V</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #fff;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .hero {
+            text-align: center;
+            padding: 100px 20px 60px;
+        }
+        .hero h1 {
+            font-size: 56px;
+            font-weight: 600;
+            margin: 0 0 10px;
+            letter-spacing: -1px;
+        }
+        .hero .subtitle {
+            font-size: 24px;
+            font-weight: 400;
+            color: #a1a1a6;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+        .hero img {
+            width: 100%;
+            max-width: 720px;
+            height: auto;
+            margin-top: 60px;
+            border-radius: 18px;
+            box-shadow: 0 0 60px rgba(50, 150, 255, 0.4), 0 0 100px rgba(100, 200, 255, 0.2);
+        }
+        .page-nav {
+            background-color: rgba(20,20,20,0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            text-align: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #333;
+        }
+        .page-nav a {
+            color: #a1a1a6;
+            text-decoration: none;
+            margin: 0 20px;
+            font-size: 16px;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        .page-nav a:hover {
+            color: #fff;
+        }
+        .lang-switcher {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+        }
+        .lang-switcher button {
+            background: none;
+            border: 1px solid #a1a1a6;
+            color: #a1a1a6;
+            padding: 5px 10px;
+            margin-left: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .lang-switcher button.active,
+        .lang-switcher button:hover {
+            background-color: #007aff;
+            color: #fff;
+            border-color: #007aff;
+        }
+        .content-section {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 60px 20px;
+            text-align: center;
+        }
+        .content-section h2 {
+            font-size: 40px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        .content-section p {
+            font-size: 20px;
+            color: #a1a1a6;
+            max-width: 720px;
+            margin: 0 auto 60px;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            text-align: left;
+        }
+        .feature {
+            background-color: #111;
+            padding: 30px;
+            border-radius: 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), 0 0 20px rgba(255, 255, 255, 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .feature:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3), 0 0 30px rgba(255, 255, 255, 0.1);
+        }
+        .feature i {
+            font-size: 32px;
+            margin-bottom: 20px;
+            color: #007aff;
+        }
+        .feature h3 {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0 0 10px;
+        }
+        .feature p {
+            font-size: 16px;
+            color: #86868b;
+            margin: 0;
+            max-width: 100%;
+        }
+        .cta-section {
+            background-color: #111;
+            border-radius: 18px;
+            padding: 60px;
+            margin-top: 80px;
+        }
+        .cta-section h2 {
+            margin-bottom: 30px;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: #007aff;
+            color: #fff;
+            padding: 15px 35px;
+            font-size: 18px;
+            font-weight: 500;
+            border-radius: 12px;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+            margin-top: 20px;
+        }
+        .cta-button:hover {
+            background-color: #005ecb;
+        }
+        .code-block {
+            background-color: #1d1d1d;
+            color: #e0e0e0;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: left;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin-top: 30px;
+            position: relative;
+        }
+        .copy-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .copy-button:hover {
+            background-color: #555;
+        }
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            font-size: 14px;
+            color: #6e6e73;
+            border-top: 1px solid #333;
+            margin-top: 80px;
+        }
+    </style>
+</head>
+<body>
+    <header class="hero">
+        <h1 data-lang="hero_title">Dreamer-V</h1>
+        <p class="subtitle" data-lang="hero_subtitle">The future of video creation is here. Effortlessly produce stunning, high-quality videos from a simple text description.</p>
+        <img src="../images/dreamer-v.png" alt="Dreamer-V App Screenshot">
+    </header>
+
+    <nav class="page-nav">
+        <a href="#why" data-lang="nav_why">Why Dreamer-V</a>
+        <a href="#features" data-lang="nav_features">Features</a>
+        <a href="#get-started" data-lang="nav_get_started">Get Started</a>
+        <div class="lang-switcher">
+            <button onclick="setLanguage('en')" class="active">EN</button>
+            <button onclick="setLanguage('zh')">中文</button>
+        </div>
+    </nav>
+
+    <main>
+        <section id="why" class="content-section">
+            <h2 data-lang="why_title">Built for Creatives, Not Just Developers</h2>
+            <p data-lang="why_text">Veo models offer state-of-the-art video generation, but the standard tools can be overwhelming for artists, designers, and producers. Dreamer-V provides a simple, intuitive interface that lets you focus on creativity and innovation, not complex configurations.</p>
+        </section>
+
+        <section id="features" class="content-section">
+            <h2 data-lang="features_title">Powerful Features at Your Fingertips</h2>
+            <div class="feature-grid">
+                <div class="feature">
+                    <i class="fas fa-cogs"></i>
+                    <h3 data-lang="feature_1_title">Veo 2 & 3 Support</h3>
+                    <p data-lang="feature_1_text">Stay on the cutting edge. Dreamer-V works with the latest Veo models as they become available.</p>
+                </div>
+                <div class="feature">
+                    <i class="fas fa-camera-retro"></i>
+                    <h3 data-lang="feature_2_title">Advanced Camera Controls</h3>
+                    <p data-lang="feature_2_text">Direct your vision with precise adjustments for camera angles and movements.</p>
+                </div>
+                <div class="feature">
+                    <i class="fas fa-film"></i>
+                    <h3 data-lang="feature_3_title">Seamless Video Extension</h3>
+                    <p data-lang="feature_3_text">Extend existing video clips to create longer, more dynamic narratives effortlessly.</p>
+                </div>
+                <div class="feature">
+                    <i class="fas fa-lightbulb"></i>
+                    <h3 data-lang="feature_4_title">Intelligent Prompt Refinement</h3>
+                    <p data-lang="feature_4_text">Our tools help you craft the perfect prompt to get the exact results you envision.</p>
+                </div>
+                <div class="feature">
+                    <i class="fas fa-history"></i>
+                    <h3 data-lang="feature_5_title">Intuitive History</h3>
+                    <p data-lang="feature_5_text">Easily browse, manage, and build upon your past video generations.</p>
+                </div>
+                <div class="feature">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <h3 data-lang="feature_6_title">Flexible Deployment</h3>
+                    <p data-lang="feature_6_text">Run it instantly in Cloud Shell or deploy on Cloud Run for a scalable, managed solution.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="get-started" class="content-section cta-section">
+            <h2 data-lang="get_started_title">Get Started in Minutes</h2>
+            <p data-lang="get_started_text">Launch Dreamer-V in Google Cloud Shell and start creating. It's the fastest way to experience the full potential of Veo.</p>
+            <div class="code-block">
+                <button class="copy-button" onclick="copyCode()" data-lang="copy_button">Copy</button>
+                <code id="launch-command">
+gcloud config set project veo-testing
+GCP_REGION=us-central1
+BUCKET=gs://dreamer-v-data-${GOOGLE_CLOUD_PROJECT}-${USER}
+gsutil mb ${BUCKET}
+mkdir -p dreamer-v-data
+docker run -d --name dreamer-v-app \
+  -p 8080:80 \
+  -e GCP_PROJECT_ID=${GOOGLE_CLOUD_PROJECT} \
+  -e GCP_REGION=${GCP_REGION} \
+  -e VIDEO_GCS_BUCKET=${BUCKET} \
+  -v "$(pwd)/dreamer-v-data":/app/backend/data \
+  --rm \
+  nicosoft/dreamer-v:latest
+                </code>
+            </div>
+            <a href="https://shell.cloud.google.com/?show=terminal&autoinstall_command=BUCKET%3Dgs%3A%2F%2F%24(DEVSHELL_PROJECT_ID)-dreamer-v-data%0Agsutil%20mb%20%24BUCKET%0Amkdir%20-p%20dreamer-v-data%0Adocker%20run%20-d%20--name%20dreamer-v-app%20%5C%0A%20%20-p%208080%3A80%20%5C%0A%20%20-e%20GCP_PROJECT_ID%3Dveo-testing%20%5C%0A%20%20-e%20GCP_REGION%3Dus-central1%20%5C%0A%20%20-e%20VIDEO_GCS_BUCKET%3D%24BUCKET%20%5C%0A%20%20-v%20%22%24(pwd)%2Fdreamer-v-data%22%3A%2Fapp%2Fbackend%2Fdata%20%5C%0A%20%20--rm%20%5C%0A%20%20nicosoft%2Fdreamer-v%3Alatest" class="cta-button" target="_blank" data-lang="get_started_button">Launch Cloud Shell</a>
+        </section>
+    </main>
+
+    <footer>
+        <p data-lang="footer_text">We welcome your feedback and suggestions. Copyright &copy; 2025 Dreamer-V. All rights reserved.</p>
+    </footer>
+
+    <script>
+        const translations = {
+            en: {
+                nav_why: "Why Dreamer-V",
+                nav_features: "Features",
+                nav_get_started: "Get Started",
+                hero_title: "Dreamer-V",
+                hero_subtitle: "The future of video creation is here. Effortlessly produce stunning, high-quality videos from a simple text description.",
+                why_title: "Built for Creatives, Not Just Developers",
+                why_text: "Veo models offer state-of-the-art video generation, but the standard tools can be overwhelming for artists, designers, and producers. Dreamer-V provides a simple, intuitive interface that lets you focus on creativity and innovation, not complex configurations.",
+                features_title: "Powerful Features at Your Fingertips",
+                feature_1_title: "Veo 2 & 3 Support",
+                feature_1_text: "Stay on the cutting edge. Dreamer-V works with the latest Veo models as they become available.",
+                feature_2_title: "Advanced Camera Controls",
+                feature_2_text: "Direct your vision with precise adjustments for camera angles and movements.",
+                feature_3_title: "Seamless Video Extension",
+                feature_3_text: "Extend existing video clips to create longer, more dynamic narratives effortlessly.",
+                feature_4_title: "Intelligent Prompt Refinement",
+                feature_4_text: "Our tools help you craft the perfect prompt to get the exact results you envision.",
+                feature_5_title: "Intuitive History",
+                feature_5_text: "Easily browse, manage, and build upon your past video generations.",
+                feature_6_title: "Flexible Deployment",
+                feature_6_text: "Run it instantly in Cloud Shell or deploy on Cloud Run for a scalable, managed solution.",
+                get_started_title: "Get Started in Minutes",
+                get_started_text: "Launch Dreamer-V in Google Cloud Shell and start creating. It's the fastest way to experience the full potential of Veo.",
+                get_started_button: "Launch Cloud Shell",
+                copy_button: "Copy",
+                footer_text: "We welcome your feedback and suggestions. Copyright &copy; 2025 Dreamer-V. All rights reserved."
+            },
+            zh: {
+                nav_why: "为何选择Dreamer-V",
+                nav_features: "功能特色",
+                nav_get_started: "开始使用",
+                hero_title: "Dreamer-V",
+                hero_subtitle: "视频创作的未来已来。通过简单的文本描述，轻松制作出令人惊叹的高质量视频。",
+                why_title: "专为创意人士打造，而非仅仅为开发者",
+                why_text: "Veo模型提供最先进的视频生成技术，但标准工具对于艺术家、设计师和制作人来说可能过于复杂。Dreamer-V提供了一个简单直观的界面，让您专注于创意和创新，而不是复杂的配置。",
+                features_title: "强大功能，尽在指尖",
+                feature_1_title: "支持Veo 2 & 3",
+                feature_1_text: "保持前沿。Dreamer-V支持最新的Veo 模型。",
+                feature_2_title: "高级相机控制",
+                feature_2_text: "通过精确调整相机角度和移动来指导您的视觉。",
+                feature_3_title: "无缝视频扩展",
+                feature_3_text: "轻松扩展现有视频剪辑，创造更长、更具活力的叙事。",
+                feature_4_title: "智能提示优化",
+                feature_4_text: "我们的工具可帮助您制作完美的提示，以获得您所设想的精确结果。",
+                feature_5_title: "直观的历史记录",
+                feature_5_text: "轻松浏览、管理和建立在您过去的视频生成基础上。",
+                feature_6_title: "灵活部署",
+                feature_6_text: "立即在Cloud Shell中运行，或在Cloud Run 部署以获得可扩展的托管解决方案。",
+                get_started_title: "马上体验",
+                get_started_text: "在Google Cloud Shell中启动Dreamer-V并开始创作。这是体验Veo全部潜力的最快方式。",
+                get_started_button: "启动Cloud Shell",
+                copy_button: "复制",
+                footer_text: "我们欢迎您的反馈和建议。版权所有 &copy; 2025 Dreamer-V。保留所有权利。"
+            }
+        };
+
+        function setLanguage(lang) {
+            document.querySelectorAll('[data-lang]').forEach(el => {
+                const key = el.getAttribute('data-lang');
+                if (translations[lang] && translations[lang][key]) {
+                    el.innerText = translations[lang][key];
+                }
+            });
+            document.querySelectorAll('.lang-switcher button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.lang-switcher button[onclick="setLanguage('${lang}')"]`).classList.add('active');
+        }
+
+        // Set default language on page load
+        setLanguage('en');
+
+        function copyCode() {
+            const code = document.getElementById('launch-command').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const button = document.querySelector('.copy-button');
+                const originalText = button.innerText;
+                button.innerText = 'Copied!';
+                setTimeout(() => {
+                    button.innerText = originalText;
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>
