@@ -263,19 +263,20 @@
             <div class="code-block">
                 <button class="copy-button" onclick="copyCode()" data-lang="copy_button">Copy</button>
                 <code id="launch-command">
-gcloud config set project veo-testing
-GCP_REGION=us-central1
-BUCKET=gs://dreamer-v-data-${GOOGLE_CLOUD_PROJECT}-${USER}
-gsutil mb ${BUCKET}
+GCP_PROJECT_ID=veo-testing
+gcloud config set project ${GCP_PROJECT_ID}
+BUCKET=gs://dreamer-v-data-${GCP_PROJECT_ID}-${USER}
+gsutil mb $BUCKET
 mkdir -p dreamer-v-data
 docker run -d --name dreamer-v-app \
-  -p 8080:80 \
-  -e GCP_PROJECT_ID=${GOOGLE_CLOUD_PROJECT} \
-  -e GCP_REGION=${GCP_REGION} \
-  -e VIDEO_GCS_BUCKET=${BUCKET} \
-  -v "$(pwd)/dreamer-v-data":/app/backend/data \
-  --rm \
-  nicosoft/dreamer-v:latest
+    -p 8080:80 \
+    -e GCP_PROJECT_ID=${GCP_PROJECT_ID}\
+    -e GCP_REGION=us-central1 \
+    -e VIDEO_GCS_BUCKET=${BUCKET} \
+    -v ~/dreamer-v-data:/app/backend/data \
+    --rm \
+    nicosoft/dreamer-v:latest
+
                 </code>
             </div>
             <a href="https://shell.cloud.google.com/?show=terminal&autoinstall_command=BUCKET%3Dgs%3A%2F%2F%24(DEVSHELL_PROJECT_ID)-dreamer-v-data%0Agsutil%20mb%20%24BUCKET%0Amkdir%20-p%20dreamer-v-data%0Adocker%20run%20-d%20--name%20dreamer-v-app%20%5C%0A%20%20-p%208080%3A80%20%5C%0A%20%20-e%20GCP_PROJECT_ID%3Dveo-testing%20%5C%0A%20%20-e%20GCP_REGION%3Dus-central1%20%5C%0A%20%20-e%20VIDEO_GCS_BUCKET%3D%24BUCKET%20%5C%0A%20%20-v%20%22%24(pwd)%2Fdreamer-v-data%22%3A%2Fapp%2Fbackend%2Fdata%20%5C%0A%20%20--rm%20%5C%0A%20%20nicosoft%2Fdreamer-v%3Alatest" class="cta-button" target="_blank" data-lang="get_started_button">Launch Cloud Shell</a>

@@ -15,7 +15,7 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # Install Nginx
-RUN apt-get update && apt-get install -y nginx curl libgl1-mesa-glx ffmpeg libsm6 libxext6 && apt-get clean
+RUN apt-get update && apt-get install -y nginx curl libgl1-mesa-glx ffmpeg libsm6 libxext6 sqlite3 && apt-get clean
 
 # Copy backend files
 COPY backend/ /app/backend/
