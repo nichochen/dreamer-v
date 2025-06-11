@@ -43,19 +43,19 @@ Get started with Dreamer-V instantly using Cloud Shell!
 2.  Open Cloud Shell.
 3.  Run the following commands:
     ```bash
-    gcloud config set project veo-testing
-    GCP_REGION=us-central1
-    BUCKET=gs://dreamer-v-data-${GOOGLE_CLOUD_PROJECT}-${USER}
+    GCP_PROJECT_ID=veo-testing
+    gcloud config set project ${GCP_PROJECT_ID}
+    BUCKET=gs://dreamer-v-data-${GCP_PROJECT_ID}-${USER}
     gsutil mb ${BUCKET}
     mkdir -p dreamer-v-data
     docker run -d --name dreamer-v-app \
-      -p 8080:80 \
-      -e GCP_PROJECT_ID=${GOOGLE_CLOUD_PROJECT} \
-      -e GCP_REGION=${GCP_REGION} \
-      -e VIDEO_GCS_BUCKET=${BUCKET} \
-      -v "$(pwd)/dreamer-v-data":/app/backend/data \
-      --rm \
-      nicosoft/dreamer-v:latest
+        -p 8080:80 \
+        -e GCP_PROJECT_ID=${GCP_PROJECT_ID}\
+        -e GCP_REGION=us-central1 \
+        -e VIDEO_GCS_BUCKET=${BUCKET} \
+        -v ~/dreamer-v-data:/app/backend/data \
+        --rm \
+        nicosoft/dreamer-v:latest
     ```
 
 ### In Cloud Run
