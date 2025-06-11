@@ -45,7 +45,7 @@ Get started with Dreamer-V instantly using Cloud Shell!
     ```bash
     GCP_PROJECT_ID=veo-testing
     gcloud config set project ${GCP_PROJECT_ID}
-    BUCKET=gs://dreamer-v-data-${GCP_PROJECT_ID}-${USER}
+    BUCKET=gs://dreamer-v-${GCP_PROJECT_ID}-${USER}-data
     gsutil mb ${BUCKET}
     mkdir -p dreamer-v-data
     docker run -d --name dreamer-v-app \
