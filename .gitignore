@@ -49,3 +49,4 @@ local/
 deployment/terraform.tfstate
 deployment/terraform.tfstate.backup
 deployment/.terraform/
+deployment/.terraform.*
