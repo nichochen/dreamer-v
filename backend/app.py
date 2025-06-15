@@ -40,23 +40,23 @@ thumbnails_dir = os.path.join(data_dir, 'thumbnails') # Local thumbnails folder,
 
 # Ensure directories exist
 if not os.path.exists(data_dir):
-    os.makedirs(data_dir)
+    os.makedirs(data_dir, exist_ok=True)
 if not os.path.exists(videos_dir): # This will now create backend/data/videos
-    os.makedirs(videos_dir)
+    os.makedirs(videos_dir, exist_ok=True) # exist_ok=True to avoid error if it already exists
 if not os.path.exists(thumbnails_dir): # This will now create backend/data/thumbnails
-    os.makedirs(thumbnails_dir)
+    os.makedirs(thumbnails_dir, exist_ok=True)
 
 generated_music_dir = os.path.join(data_dir, 'music') # Local folder for Lyria generated music
 if not os.path.exists(generated_music_dir):
-    os.makedirs(generated_music_dir)
+    os.makedirs(generated_music_dir, exist_ok=True)
 
 user_uploaded_music_dir = os.path.join(data_dir, 'user_uploaded_music') # Local folder for user uploaded music
 if not os.path.exists(user_uploaded_music_dir):
-    os.makedirs(user_uploaded_music_dir)
+    os.makedirs(user_uploaded_music_dir, exist_ok=True)
 
 uploads_dir = os.path.join(data_dir, 'uploads') # Local uploads folder for images, now in data_dir
 if not os.path.exists(uploads_dir): # This will now create backend/data/uploads
-    os.makedirs(uploads_dir)
+    os.makedirs(uploads_dir, exist_ok=True)
 
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(data_dir, "tasks.db")}'

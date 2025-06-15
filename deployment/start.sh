@@ -1,5 +1,24 @@
 #!/bin/bash
 
+# Check for required environment variables
+if [ -z "$GCP_PROJECT_ID" ]; then
+  echo "Error: GCP_PROJECT_ID environment variable is not set."
+  exit 1
+fi
+echo "GCP_PROJECT_ID: $GCP_PROJECT_ID"
+
+if [ -z "$GCP_REGION" ]; then
+  echo "Error: GCP_REGION environment variable is not set."
+  exit 1
+fi
+echo "GCP_REGION: $GCP_REGION"
+
+if [ -z "$VIDEO_GCS_BUCKET" ]; then
+  echo "Error: VIDEO_GCS_BUCKET environment variable is not set."
+  exit 1
+fi
+echo "VIDEO_GCS_BUCKET: $VIDEO_GCS_BUCKET"
+
 # Define the database path
 DB_PATH="/app/backend/data/tasks.db"
 DB_DIR=$(dirname "$DB_PATH")

@@ -45,3 +45,7 @@ Thumbs.db
 backend/data/
 local.env
 local/
+
+deployment/terraform.tfstate
+deployment/terraform.tfstate.backup
+deployment/.terraform/
