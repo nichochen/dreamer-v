@@ -620,7 +620,7 @@ export const createCompositeVideo = async ({
     };
 
     if (musicFilePath) {
-      payload.music_file_path = musicFilePath;
+      payload.music_file_path = musicFilePath.replace('/api', ''); // Remove '/api' prefix if needed
     }
 
     const response = await fetch(`${BACKEND_URL}/create_composite_video`, {

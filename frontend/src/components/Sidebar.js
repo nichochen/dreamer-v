@@ -345,6 +345,12 @@ function Sidebar({
 
       {activeView === 'create' && (
         <>
+          <div className={`alert alert-info mt-3 ${theme === 'dark' ? 'alert-info-dark' : ''}`} role="alert">
+            <h5 className="alert-heading"><i className="bi bi-tools me-2"></i>{t('videoEditingUnderDevelopmentNoticeTitle')}</h5>
+            <p style={{ fontSize: '0.85rem' }}>{t('videoEditingUnderDevelopmentNoticeBody')}</p>
+            <hr />
+            <p className="mb-0" style={{ fontSize: '0.85rem' }}>{t('videoEditingUnderDevelopmentNoticeSuggestion')}</p>
+          </div>
           {/* Music Panel Removed */}
           <div className="card">
             <div className="card-body text-center">

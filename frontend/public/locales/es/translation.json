@@ -125,5 +125,10 @@
   "errorUploadMusicFile": "Error al subir el archivo de música: {{statusText}}",
   "errorUploadMusicFileNoPath": "Archivo de música subido, pero el servidor no devolvió una ruta.",
   "uploadingMusicMessage": "Subiendo música...",
-  "errorUploadMusicFileGeneric": "Error al subir el archivo de música. Por favor, inténtalo de nuevo."
+  "errorUploadMusicFileGeneric": "Error al subir el archivo de música. Por favor, inténtalo de nuevo.",
+  "clearMusicSelectionButtonTitle": "Limpiar música seleccionada",
+  "musicGenerationComingSoonMessage": "¡La función de generación de música llegará pronto!",
+  "videoEditingUnderDevelopmentNoticeTitle": "Función de Edición de Video - En Desarrollo",
+  "videoEditingUnderDevelopmentNoticeBody": "El modo de edición de video (Tejer) está actualmente en desarrollo activo. Puedes experimentar problemas de rendimiento o encontrar errores.",
+  "videoEditingUnderDevelopmentNoticeSuggestion": "Esta función consume mucha CPU. Si la encuentras muy lenta, por favor considera aumentar los recursos de tu servidor."
 }

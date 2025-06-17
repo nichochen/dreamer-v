@@ -125,5 +125,10 @@
   "errorUploadMusicFile": "音楽ファイルのアップロードに失敗しました: {{statusText}}",
   "errorUploadMusicFileNoPath": "音楽ファイルはアップロードされましたが、サーバーからパスが返されませんでした。",
   "uploadingMusicMessage": "音楽をアップロード中...",
-  "errorUploadMusicFileGeneric": "音楽ファイルのアップロードに失敗しました。もう一度お試しください。"
+  "errorUploadMusicFileGeneric": "音楽ファイルのアップロードに失敗しました。もう一度お試しください。",
+  "clearMusicSelectionButtonTitle": "選択した音楽をクリア",
+  "musicGenerationComingSoonMessage": "音楽生成機能は近日公開予定です！",
+  "videoEditingUnderDevelopmentNoticeTitle": "動画編集機能 - 開発中",
+  "videoEditingUnderDevelopmentNoticeBody": "動画編集（ウィーブ）モードは現在活発に開発中です。パフォーマンスの問題やバグが発生する可能性があります。",
+  "videoEditingUnderDevelopmentNoticeSuggestion": "この機能はCPU負荷が高いです。動作が非常に遅い場合は、サーバーリソースの増強を検討してください。"
 }
