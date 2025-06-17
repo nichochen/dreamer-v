@@ -33,11 +33,45 @@ The concept for Dreamer-V is directly informed by real customer feedback. Veo mo
 
 ## Running Dreamer-V
 
-### In Cloud Shell
+This section guides you through deploying and running Dreamer-V. You can choose to run it in Google Cloud Shell for a quick start or deploy it to Cloud Run for a more robust and scalable solution.
 
-Get started with Dreamer-V instantly using Cloud Shell!
+### Prerequisites
 
-**Setup:**
+Before you begin, ensure the following prerequisites are met in your Google Cloud Project:
+
+**1. Enable Required Services:**
+
+Execute the following commands to enable the necessary Google Cloud services:
+```bash
+gcloud services enable aiplatform.googleapis.com
+gcloud services enable run.googleapis.com
+gcloud services enable iap.googleapis.com
+gcloud services enable compute.googleapis.com
+gcloud services enable storage.googleapis.com
+```
+
+**2. Grant IAM Permissions:**
+
+Grant the required IAM roles to the respective service accounts and users:
+
+*   **Default Compute Service Account (`PROJECT_NUMBER-compute@developer.gserviceaccount.com`):**
+    *   `roles/storage.objectAdmin` (Storage Object Admin)
+    *   `roles/aiplatform.user` (Vertex AI User)
+
+*   **Vertex AI Service Agent (`service-PROJECT_NUMBER@gcp-sa-aiplatform.iam.gserviceaccount.com`):**
+    *   `roles/storage.objectAdmin` (Storage Object Admin)
+
+*   **Users accessing the application:**
+    *   `roles/iap.httpsResourceAccessor` (IAP-secured Web App User)
+    *   `roles/run.invoker` (Cloud Run Invoker) - *Needed if IAP is not used or for service-to-service invocation.*
+
+Replace `PROJECT_NUMBER` with your actual Google Cloud project number.
+
+### Option 1: Running in Cloud Shell
+
+Get started with Dreamer-V instantly using Cloud Shell! This is ideal for quick testing and development.
+
+**Setup Steps:**
 
 1.  Navigate to your Google Cloud Project (Veo 3/Veo 2 exp access highly recommended!).
 2.  Open Cloud Shell.
@@ -58,19 +92,35 @@ Get started with Dreamer-V instantly using Cloud Shell!
         nicosoft/dreamer-v:latest
     ```
 
-### In Cloud Run
+### Option 2: Deploying to Cloud Run
 
-Dreamer-V can also be deployed on Cloud Run for a more scalable and managed solution.
+For a more permanent and scalable setup, deploy Dreamer-V to Cloud Run. This method uses Terraform for infrastructure provisioning.
 
-**Architecture Overview:**
-```
+**Deployment Steps:**
 
-External App LB --> IAP (Identity-Aware Proxy) --> Cloud Run --> Vertex AI
-                                                    |
-                                                    --> GCS (Google Cloud Storage)
-```
-
-A Certificate Manager can be used with your Domain Name for SSL.
+1. Clone the git repository:
+   ```bash
+   git clone https://github.com/nichochen/dreamer-v
+   ```
+2. Navigate to the deployment directory:
+   ```bash
+   cd dreamer-v/deployment/
+   ```
+3. Edit `terraform.tfvars` to update variables.
+4. Initialize Terraform:
+   ```bash
+   terraform init
+   ```
+5. Plan the Terraform deployment:
+   ```bash
+   terraform plan
+   ```
+6. Apply the Terraform configuration:
+   ```bash
+   terraform apply
+   ```
+7. Update Cloud Run service security setting:
+    * Disable IAM check. Use IAP for authentication.
 
 **Important:** Make sure to enforce access control when deploying on Cloud Run, for example, by using IAP.
 
