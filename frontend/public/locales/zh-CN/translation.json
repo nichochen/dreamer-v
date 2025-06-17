@@ -39,6 +39,7 @@
   "notSupportedSuffix": " (不支持)",
   "aspectRatio9x16Warning": "此模型不支持9:16宽高比，已重置为16:9。",
   "cameraControlLabel": "镜头控制",
+  "selectOption": "选择...",
   "videoDurationLabel": "视频时长 (秒)",
   "gcsOutputBucketLabel": "GCS 输出存储桶 (可选)",
   "gcsOutputBucketPlaceholder": "gs://your-bucket-name/path",

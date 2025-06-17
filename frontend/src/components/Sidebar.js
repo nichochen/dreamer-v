@@ -284,8 +284,9 @@ function Sidebar({
                 className="form-select"
                 value={cameraControl}
                 onChange={(e) => onCameraControlChange(e.target.value)}
-                disabled={isLoading || model === 'veo-2.0-generate-001'}
+                disabled={isLoading || model !== 'veo-2.0-generate-exp'}
               >
+                <option value="">{t('selectOption')}</option>
                 <option value="FIXED">FIXED</option>
                 <option value="PAN_LEFT">PAN_LEFT</option>
                 <option value="PAN_RIGHT">PAN_RIGHT</option>

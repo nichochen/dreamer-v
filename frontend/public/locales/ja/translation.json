@@ -39,6 +39,7 @@
   "notSupportedSuffix": " (サポートされていません)",
   "aspectRatio9x16Warning": "このモデルでは9:16のアスペクト比はサポートされておらず、16:9にリセットされました。",
   "cameraControlLabel": "カメラ制御",
+  "selectOption": "選択...",
   "videoDurationLabel": "ビデオの長さ (秒)",
   "gcsOutputBucketLabel": "GCS出力バケット (オプション)",
   "gcsOutputBucketPlaceholder": "gs://your-bucket-name/path",

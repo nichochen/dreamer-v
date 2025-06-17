@@ -39,6 +39,7 @@
   "notSupportedSuffix": " (Not Supported)",
   "aspectRatio9x16Warning": "9:16 ratio is not supported by this model and has been reset to 16:9.",
   "cameraControlLabel": "Camera Control",
+  "selectOption": "Select...",
   "videoDurationLabel": "Video Duration (seconds)",
   "gcsOutputBucketLabel": "GCS Output Bucket (Optional)",
   "gcsOutputBucketPlaceholder": "gs://your-bucket-name/path",

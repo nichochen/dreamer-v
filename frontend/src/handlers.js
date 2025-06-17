@@ -242,9 +242,14 @@ export const handleHistoryItemClick = async ({
       }
     } else { // Dream view
     setPrompt(task.prompt);
-    setModel(task.model || 'veo-2.0-generate-001');
+    const newModel = task.model || 'veo-2.0-generate-001';
+    setModel(newModel);
     setRatio(task.aspect_ratio || '16:9');
-    setCameraControl(task.camera_control || 'FIXED');
+    if (newModel === 'veo-2.0-generate-exp') {
+      setCameraControl(task.camera_control || '');
+    } else {
+      setCameraControl('');
+    }
     setDuration(task.duration_seconds || 5);
     setGcsOutputBucket(task.gcs_output_bucket || '');
     setTaskId(task.task_id);

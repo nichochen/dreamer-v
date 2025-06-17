@@ -39,7 +39,7 @@ function App() {
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [model, setModel] = useState('veo-2.0-generate-001'); // Default model
   const [ratio, setRatio] = useState('16:9'); // Default ratio
-  const [cameraControl, setCameraControl] = useState('FIXED'); // Default camera control
+  const [cameraControl, setCameraControl] = useState(''); // Default camera control
   const [duration, setDuration] = useState(5); // Default duration in seconds, changed to 5
   const [gcsOutputBucket, setGcsOutputBucket] = useState(''); // GCS output bucket
   const [theme, setTheme] = useState('dark'); // 'light' or 'dark' - Defaulted to dark
@@ -145,8 +145,8 @@ function App() {
 
   useEffect(() => {
     // Existing logic for camera control and duration
-    if (model === 'veo-2.0-generate-001') {
-      setCameraControl('FIXED');
+    if (model !== 'veo-2.0-generate-exp') {
+      setCameraControl(''); // Reset to default if model does not support camera control
     }
     if (model === 'veo-3.0-generate-preview' || model === 'veo-2.0-generate-exp') {
       if (duration !== 8) {
