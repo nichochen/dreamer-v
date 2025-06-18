@@ -413,12 +413,9 @@ export const handleGenerateImageClick = async ({
     // The image_url from backend is relative like /api/uploads/filename.png
     // Prepend BACKEND_URL to make it absolute for direct use if needed,
     // or ensure the <img> src can handle relative paths correctly.
-    // For now, let's assume the UI component will handle prepending BACKEND_URL if necessary.
     // The image_url from backend is relative like /api/uploads/filename.png
-    // We need to construct the full URL using the origin of BACKEND_URL and this path.
-    const backendOrigin = new URL(BACKEND_URL).origin;
-    setGeneratedImageUrl(backendOrigin + result.image_url);
-    // Example: setGeneratedImageUrl(result.image_url); // This would be if the <img> src is relative to domain
+    // This path is already correct for use as an <img> src if the frontend and backend are on the same domain.
+    setGeneratedImageUrl(BACKEND_URL + result.image_url); 
     
   } catch (error) {
     console.error('Handler error generating image:', error);

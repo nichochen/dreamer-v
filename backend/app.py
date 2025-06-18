@@ -1014,7 +1014,7 @@ def generate_image_route():
                 with open(image_save_path, "wb") as f:
                     f.write(image_bytes)
                 
-                image_url = f"/api/uploads/{image_filename}" # URL for frontend to fetch the image
+                image_url = f"/uploads/{image_filename}" # URL for frontend to fetch the image
                 print(f"Image generated and saved to {image_save_path}. URL: {image_url}")
                 return jsonify({"image_url": image_url, "filename": image_filename}), 200
             elif prediction.get("raiFilteredReason"):
