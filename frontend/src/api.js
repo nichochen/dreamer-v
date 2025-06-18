@@ -652,3 +652,49 @@ export const createCompositeVideo = async ({
     throw error; // Re-throwing so the caller (handleCreateVideoClick) can catch it for setIsCreatingVideo(false)
   }
 };
+
+export const generateImage = async ({
+  prompt,
+  aspectRatio, // Renamed from ratio to match backend expectation more clearly
+  t,
+}) => {
+  if (!prompt || !prompt.trim()) {
+    throw new Error(t('errorPromptRequired'));
+  }
+  if (!aspectRatio) {
+    throw new Error(t('errorAspectRatioRequired')); // Or provide a default if appropriate
+  }
+
+  console.log(`Attempting to generate image with prompt: ${prompt} ratio: ${aspectRatio}`); // For debugging
+
+  try {
+    const payload = {
+      prompt: prompt,
+      aspect_ratio: aspectRatio,
+    };
+
+    const response = await fetch(`${BACKEND_URL}/generate_image`, { // Corrected endpoint
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || t('errorGenerateImage', { statusText: response.statusText }));
+    }
+
+    if (data.image_url) {
+      return data; // Returns { image_url: "...", filename: "..." }
+    } else {
+      throw new Error(t('errorGenerateImageNoUrl'));
+    }
+  } catch (error) {
+    console.error('Error generating image:', error);
+    // Re-throw the error so the calling handler can manage UI state
+    throw error;
+  }
+};

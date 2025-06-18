@@ -16,6 +16,7 @@ from google import genai
 from google.genai import types
 from google_veo import GoogleVeo # Import GoogleVeo
 from google_lyria import GoogleLyria # Import GoogleLyria
+from google_imagen import GoogleImagen # Import GoogleImagen
 
 # --- Load Environment Variables ---
 # Construct the path to local.env in the parent directory
@@ -27,6 +28,7 @@ PROJECT_ID = os.getenv("GCP_PROJECT_ID")
 LOCATION = os.getenv("GCP_REGION") # Assuming GCP_REGION is used for LOCATION
 DEFAULT_OUTPUT_GCS_BUCKET = os.getenv("VIDEO_GCS_BUCKET")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "iamsuperuser-2282@dreamer-v.io")
+DEFAULT_IMAGEN_MODEL_ID = os.getenv("DEFAULT_IMAGEN_MODEL_ID", "imagen-4.0-generate-preview-06-06")
 
 # --- Flask App Initialization ---
 app = Flask(__name__)
@@ -65,6 +67,7 @@ db = SQLAlchemy(app)
 
 # --- Video Generation Configuration ---
 DEFAULT_VIDEO_MODEL = "veo-2.0-generate-001"
+DEFAULT_IMAGEN_MODEL = DEFAULT_IMAGEN_MODEL_ID # Use the loaded env var or its default
 
 # --- Helper function to get user email ---
 def get_processed_user_email_from_header(default_fallback_email="public@dreamer-v"):
@@ -193,6 +196,17 @@ if PROJECT_ID:
         lyria_client = None # Ensure it's None if init fails
 else:
     print("Warning: GCP_PROJECT_ID not set. GoogleLyria client will not be initialized.")
+
+imagen_client = None
+if PROJECT_ID and LOCATION:
+    try:
+        imagen_client = GoogleImagen(project_id=PROJECT_ID, location=LOCATION, model_id=DEFAULT_IMAGEN_MODEL)
+        print(f"GoogleImagen client initialized with model: {DEFAULT_IMAGEN_MODEL}.")
+    except Exception as e:
+        print(f"Error initializing GoogleImagen client: {e}. Image generation will be unavailable.")
+        imagen_client = None
+else:
+    print("Warning: GCP_PROJECT_ID or GCP_REGION not set. GoogleImagen client will not be initialized.")
 
 
 def _run_video_generation(task_id):
@@ -952,6 +966,83 @@ def create_composite_video_route():
     return jsonify({"message": "Composite video creation started", "task_id": new_composite_task.id}), 202
 
 
+# --- Image Generation API Route ---
+@app.route('/api/generate_image', methods=['POST'])
+def generate_image_route():
+    if not imagen_client:
+        return jsonify({"error": "Image generation service is not available. Check server configuration."}), 503
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+    
+    prompt = data.get('prompt')
+    aspect_ratio = data.get('aspect_ratio', '1:1') # Default to 1:1 if not provided
+
+    if not prompt:
+        return jsonify({"error": "Prompt is required"}), 400
+
+    try:
+        print(f"Received image generation request: prompt='{prompt}', aspect_ratio='{aspect_ratio}'")
+        
+        # Call GoogleImagen client
+        # Parameters are based on the requirements: prompt and aspect_ratio from UI.
+        # Other parameters like sample_count, output_mime_type, add_watermark are set to defaults.
+        response_data = imagen_client.generate_image(
+            prompt=prompt,
+            sample_count=1, 
+            aspect_ratio=aspect_ratio,
+            output_mime_type="image/png", # Always request PNG for consistency
+            add_watermark=False # Typically disabled for programmatic use unless specified
+        )
+
+        if response_data and "predictions" in response_data and response_data["predictions"]:
+            prediction = response_data["predictions"][0]
+            if "bytesBase64Encoded" in prediction and prediction["bytesBase64Encoded"]:
+                image_b64_data = prediction["bytesBase64Encoded"]
+                image_bytes = base64.b64decode(image_b64_data)
+                
+                # Determine file extension from mimeType if available, default to .png
+                mime_type = prediction.get("mimeType", "image/png")
+                extension = 'png' # Default to png as we requested it
+                if mime_type.lower() == "image/jpeg":
+                    extension = 'jpeg'
+                
+                image_filename = f"{uuid.uuid4()}.{extension}"
+                image_save_path = os.path.join(uploads_dir, image_filename) # uploads_dir is backend/data/uploads/
+                
+                with open(image_save_path, "wb") as f:
+                    f.write(image_bytes)
+                
+                image_url = f"/api/uploads/{image_filename}" # URL for frontend to fetch the image
+                print(f"Image generated and saved to {image_save_path}. URL: {image_url}")
+                return jsonify({"image_url": image_url, "filename": image_filename}), 200
+            elif prediction.get("raiFilteredReason"):
+                 error_msg = f"Image generation filtered by Responsible AI: {prediction['raiFilteredReason']}"
+                 print(error_msg)
+                 return jsonify({"error": error_msg}), 400 
+            else:
+                error_msg = "Image generation successful but no image data found in prediction."
+                print(f"{error_msg} Response: {prediction}")
+                return jsonify({"error": error_msg}), 500
+        elif response_data: 
+            error_msg = "Image generation returned an unexpected response format."
+            print(f"{error_msg} Full response: {response_data}")
+            return jsonify({"error": error_msg, "details": response_data}), 500
+        else: 
+            error_msg = "Image generation failed. Check server logs for details from Imagen client."
+            print(error_msg)
+            return jsonify({"error": error_msg}), 500
+
+    except RuntimeError as e: 
+        print(f"RuntimeError during image generation: {e}")
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        print(f"Unexpected error in /api/generate_image: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+
 # --- Music Generation ---
 def _run_music_generation(task_id):
     with app.app_context():
@@ -1114,4 +1205,5 @@ if __name__ == '__main__':
     print(f"Using Project ID: {PROJECT_ID}, Location: {LOCATION}")
     print(f"Default Output GCS Bucket: {DEFAULT_OUTPUT_GCS_BUCKET}")
     print(f"Default Video Model: {DEFAULT_VIDEO_MODEL}")
+    print(f"Default Imagen Model: {DEFAULT_IMAGEN_MODEL}")
     app.run(debug=False, host='0.0.0.0', port=5001)

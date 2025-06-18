@@ -1,7 +1,7 @@
 import { urlToImageFile } from './utils';
 // Ensure STATUS_COMPLETED is imported
 import { BACKEND_URL, STATUS_PENDING, STATUS_ERROR, STATUS_COMPLETED } from './constants'; 
-import { createCompositeVideo, uploadMusicFile as apiUploadMusicFile } from './api'; // Import the new API function and alias uploadMusicFile
+import { createCompositeVideo, uploadMusicFile as apiUploadMusicFile, generateImage } from './api'; // Import the new API function and alias uploadMusicFile
 
 export const handleImagePreviewClick = (imageUrl, setModalImageUrl, setShowImageModal) => {
   setModalImageUrl(imageUrl);
@@ -380,4 +380,50 @@ export const handleKeywordButtonClick = async (keywordToAdd, currentPrompt, setP
   // which needs its own set of parameters.
   // This assumes refinePromptHandler is already bound with its necessary state setters.
   await refinePromptHandler({ promptToRefine: newPrompt, buttonKey: keywordToAdd });
+};
+
+export const handleGenerateImageClick = async ({
+  prompt,
+  ratio, // This is the 'aspect_ratio' for the backend
+  setIsGeneratingImage, // New state for image generation loading
+  setGeneratedImageUrl, // New state to store the URL of the generated image
+  setImageGenerationError, // New state for image generation specific errors
+  t,
+}) => {
+  if (!prompt || !prompt.trim()) {
+    setImageGenerationError(t('errorPromptRequired'));
+    return;
+  }
+  if (!ratio) {
+    setImageGenerationError(t('errorAspectRatioRequired')); // Or handle default
+    return;
+  }
+
+  setIsGeneratingImage(true);
+  setGeneratedImageUrl('');
+  setImageGenerationError('');
+
+  try {
+    const result = await generateImage({ // Using the imported function
+      prompt,
+      aspectRatio: ratio, // Pass 'ratio' from UI as 'aspectRatio'
+      t,
+    });
+    // result contains { image_url: "...", filename: "..." }
+    // The image_url from backend is relative like /api/uploads/filename.png
+    // Prepend BACKEND_URL to make it absolute for direct use if needed,
+    // or ensure the <img> src can handle relative paths correctly.
+    // For now, let's assume the UI component will handle prepending BACKEND_URL if necessary.
+    // The image_url from backend is relative like /api/uploads/filename.png
+    // We need to construct the full URL using the origin of BACKEND_URL and this path.
+    const backendOrigin = new URL(BACKEND_URL).origin;
+    setGeneratedImageUrl(backendOrigin + result.image_url);
+    // Example: setGeneratedImageUrl(result.image_url); // This would be if the <img> src is relative to domain
+    
+  } catch (error) {
+    console.error('Handler error generating image:', error);
+    setImageGenerationError(error.message || t('errorGenerateImageGeneric'));
+  } finally {
+    setIsGeneratingImage(false);
+  }
 };

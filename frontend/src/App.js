@@ -79,6 +79,13 @@ function App() {
   const [uploadedMusicBackendUrl, setUploadedMusicBackendUrl] = useState(null); // New state for backend URL of uploaded music
   // const [musicCompletedUriPollRetries, setMusicCompletedUriPollRetries] = useState(0); // Removed
 
+  const [isGeneratingFirstFrame, setIsGeneratingFirstFrame] = useState(false); // New state for first frame generation
+  const [generatedFirstFrameImageUrl, setGeneratedFirstFrameImageUrl] = useState(''); // To store the URL from backend
+  const [firstFrameImageGenerationError, setFirstFrameImageGenerationError] = useState(''); // Error specific to first frame
+  const [isGeneratingLastFrame, setIsGeneratingLastFrame] = useState(false); // New state for last frame generation
+  const [generatedLastFrameImageUrl, setGeneratedLastFrameImageUrl] = useState(''); // To store the URL from backend for last frame
+  const [lastFrameImageGenerationError, setLastFrameImageGenerationError] = useState(''); // Error specific to last frame
+
   const handleClearMusicSelection = () => {
     setSelectedMusicFile(null);
     setUploadedMusicBackendUrl(null);
@@ -87,6 +94,100 @@ function App() {
     // e.g., if (musicFileInputRef.current) musicFileInputRef.current.value = "";
     // This is handled in MainContent.js directly for now.
   };
+
+  const handleGenerateFirstFrameImage = async () => {
+    if (!prompt.trim()) {
+      setFirstFrameImageGenerationError(t('promptRequiredForImageGeneration')); // Use specific error state
+      return;
+    }
+    // Clear previous image and error before starting a new generation
+    setImagePreview('');
+    setSelectedImage(null);
+    setGeneratedFirstFrameImageUrl('');
+    setFirstFrameImageGenerationError('');
+    // General error message can also be cleared if it's not intended to persist across different operations
+    setErrorMessage(''); 
+
+    // Call the actual handler
+    await Handlers.handleGenerateImageClick({
+      prompt,
+      ratio, // This is the aspectRatio for the backend
+      setIsGeneratingImage: setIsGeneratingFirstFrame,
+      setGeneratedImageUrl: setGeneratedFirstFrameImageUrl, // Store the URL from backend
+      setImageGenerationError: setFirstFrameImageGenerationError,
+      t,
+    });
+  };
+
+  // Effect to update imagePreview and selectedImage when generatedFirstFrameImageUrl changes
+  useEffect(() => {
+    const updatePreviewFromGeneratedUrl = async () => {
+      if (generatedFirstFrameImageUrl && !firstFrameImageGenerationError) {
+        setImagePreview(generatedFirstFrameImageUrl); // Display the image from the URL
+        try {
+          // Attempt to convert the URL to a File object to allow re-submission with video generation
+          const filename = generatedFirstFrameImageUrl.substring(generatedFirstFrameImageUrl.lastIndexOf('/') + 1);
+          const imageFile = await urlToImageFile(generatedFirstFrameImageUrl, filename);
+          if (imageFile) {
+            setSelectedImage(imageFile);
+            console.log("Generated first frame image set as selectedImage:", imageFile.name);
+          } else {
+            console.warn("Could not convert generated first frame image URL to File object.");
+            // setSelectedImage(null); // Or keep previous if any
+          }
+        } catch (e) {
+          console.error("Error converting generated image URL to file:", e);
+          // setSelectedImage(null);
+        }
+      }
+    };
+    updatePreviewFromGeneratedUrl();
+  }, [generatedFirstFrameImageUrl, firstFrameImageGenerationError]);
+
+
+  const handleGenerateLastFrameImage = async () => {
+    if (!prompt.trim()) {
+      setLastFrameImageGenerationError(t('promptRequiredForImageGeneration')); // Use specific error state
+      return;
+    }
+    // Clear previous image and error
+    setLastImagePreview('');
+    setSelectedLastImage(null);
+    setGeneratedLastFrameImageUrl('');
+    setLastFrameImageGenerationError('');
+    setErrorMessage('');
+
+    await Handlers.handleGenerateImageClick({
+      prompt,
+      ratio,
+      setIsGeneratingImage: setIsGeneratingLastFrame,
+      setGeneratedImageUrl: setGeneratedLastFrameImageUrl,
+      setImageGenerationError: setLastFrameImageGenerationError,
+      t,
+    });
+  };
+
+  // Effect to update lastImagePreview and selectedLastImage when generatedLastFrameImageUrl changes
+  useEffect(() => {
+    const updatePreviewFromGeneratedUrl = async () => {
+      if (generatedLastFrameImageUrl && !lastFrameImageGenerationError) {
+        setLastImagePreview(generatedLastFrameImageUrl); // Display the image
+        try {
+          const filename = generatedLastFrameImageUrl.substring(generatedLastFrameImageUrl.lastIndexOf('/') + 1);
+          const imageFile = await urlToImageFile(generatedLastFrameImageUrl, filename);
+          if (imageFile) {
+            setSelectedLastImage(imageFile);
+            console.log("Generated last frame image set as selectedLastImage:", imageFile.name);
+          } else {
+            console.warn("Could not convert generated last frame image URL to File object.");
+          }
+        } catch (e) {
+          console.error("Error converting generated last frame image URL to file:", e);
+        }
+      }
+    };
+    updatePreviewFromGeneratedUrl();
+  }, [generatedLastFrameImageUrl, lastFrameImageGenerationError]);
 
   // State for backend readiness
   const [isBackendReady, setIsBackendReady] = useState(false);
@@ -638,11 +739,15 @@ function App() {
               fileInputRef={fileInputRef}
               onImageChange={doHandleImageChange}
               onPasteFromClipboard={doHandlePasteFromClipboard}
+              onGenerateFirstFrameImage={handleGenerateFirstFrameImage}
+              isGeneratingFirstFrame={isGeneratingFirstFrame}
               lastImagePreviewRef={lastImagePreviewRef}
               lastImagePreview={lastImagePreview}
               onClearLastImagePreview={doClearLastImagePreview}
               lastFileInputRef={lastFileInputRef}
               onLastImageChange={doHandleLastImageChange}
+              onGenerateLastFrameImage={handleGenerateLastFrameImage}
+              isGeneratingLastFrame={isGeneratingLastFrame}
               ratio={ratio}
               onRatioChange={setRatio}
               cameraControl={cameraControl}

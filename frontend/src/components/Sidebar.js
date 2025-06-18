@@ -22,11 +22,15 @@ function Sidebar({
   fileInputRef,
   onImageChange,
   onPasteFromClipboard,
+  onGenerateFirstFrameImage, // New prop
+  isGeneratingFirstFrame, // New prop
   lastImagePreviewRef,
   lastImagePreview,
   onClearLastImagePreview,
   lastFileInputRef,
   onLastImageChange,
+  onGenerateLastFrameImage, // New prop
+  isGeneratingLastFrame, // New prop
   ratio,
   onRatioChange,
   cameraControl,
@@ -75,7 +79,7 @@ function Sidebar({
                 placeholder={t('promptPlaceholder')}
                 value={prompt}
                 onChange={onPromptChange}
-                disabled={isLoading || isRefining}
+                disabled={isLoading || isRefining || isGeneratingFirstFrame || isGeneratingLastFrame}
               ></textarea>
               <div className="mt-2 d-flex flex-wrap">
                 {promptActionButtons.map((btn, index) => (
@@ -85,7 +89,7 @@ function Sidebar({
                     onClick={btn.onClick}
                     title={btn.label}
                     style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0' }}
-                    disabled={isLoading || isRefining || (btn.disabled !== undefined ? btn.disabled : false) || (btn.keywordEffect && activeSpinnerButtonKey === btn.keyword)}
+                    disabled={isLoading || isRefining || isGeneratingFirstFrame || isGeneratingLastFrame || (btn.disabled !== undefined ? btn.disabled : false) || (btn.keywordEffect && activeSpinnerButtonKey === btn.keyword)}
                   >
                     {isRefining && activeSpinnerButtonKey === (btn.keywordEffect ? btn.keyword : btn.label) ? (
                       <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -163,6 +167,20 @@ function Sidebar({
                         >
                           <i className="bi bi-clipboard-plus"></i>
                         </button>
+                        <span className={`${theme === 'dark' ? 'text-light' : 'text-muted'} mx-1`}>{t('orSeparator')}</span>
+                        <button
+                          className={`btn btn-link ${theme === 'dark' ? 'text-light' : 'text-primary'} p-2`}
+                          onClick={onGenerateFirstFrameImage}
+                          title={t('generateFirstFrameButtonTitle')}
+                          style={{ fontSize: '1.5rem' }}
+                          disabled={isLoading || isRefining || isGeneratingFirstFrame}
+                        >
+                          {isGeneratingFirstFrame ? (
+                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                          ) : (
+                            <i className="bi bi-stars"></i>
+                          )}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -173,7 +191,7 @@ function Sidebar({
                     id="imageUploadSidebar" // Changed ID to avoid conflict if App.js still has one
                     accept="image/*"
                     onChange={onImageChange}
-                    disabled={isLoading}
+                    disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
                     style={{ display: 'none' }}
                   />
                 </div>
@@ -217,9 +235,23 @@ function Sidebar({
                           onClick={() => onPasteFromClipboard('last')}
                           title={t('pasteLastFrameImageFromClipboardButtonTitle')}
                           style={{ fontSize: '1.5rem' }}
-                          disabled={model === 'veo-3.0-generate-preview'}
+                          disabled={model === 'veo-3.0-generate-preview' || isLoading || isRefining || isGeneratingLastFrame}
                         >
                           <i className="bi bi-clipboard-plus"></i>
+                        </button>
+                        <span className={`${theme === 'dark' ? 'text-light' : 'text-muted'} mx-1`}>{t('orSeparator')}</span>
+                        <button
+                          className={`btn btn-link ${theme === 'dark' ? 'text-light' : 'text-primary'} p-2`}
+                          onClick={onGenerateLastFrameImage}
+                          title={t('generateLastFrameButtonTitle')}
+                          style={{ fontSize: '1.5rem' }}
+                          disabled={model === 'veo-3.0-generate-preview' || isLoading || isRefining || isGeneratingLastFrame}
+                        >
+                          {isGeneratingLastFrame ? (
+                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                          ) : (
+                            <i className="bi bi-stars"></i>
+                          )}
                         </button>
                       </div>
                     )}
@@ -231,7 +263,7 @@ function Sidebar({
                     id="lastImageUploadSidebar" // Changed ID
                     accept="image/*"
                     onChange={onLastImageChange}
-                    disabled={isLoading || model === 'veo-3.0-generate-preview'}
+                    disabled={isLoading || model === 'veo-3.0-generate-preview' || isGeneratingFirstFrame || isGeneratingLastFrame}
                     style={{ display: 'none' }}
                   />
                   {model === 'veo-3.0-generate-preview' && (
@@ -250,7 +282,7 @@ function Sidebar({
                 className="form-select"
                 value={model}
                 onChange={(e) => onModelChange(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
               >
                 <option value="veo-2.0-generate-001">veo-2.0-generate-001</option>
                 <option value="veo-2.0-generate-exp">veo-2.0-generate-exp</option>
@@ -265,7 +297,7 @@ function Sidebar({
                 className="form-select"
                 value={ratio}
                 onChange={(e) => onRatioChange(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
               >
                 <option value="16:9">{t('aspectRatio16x9')}</option>
                 <option value="9:16" disabled={model === 'veo-3.0-generate-preview'}>{t('aspectRatio9x16')}{model === 'veo-3.0-generate-preview' ? t('notSupportedSuffix') : ''}</option>
@@ -284,7 +316,7 @@ function Sidebar({
                 className="form-select"
                 value={cameraControl}
                 onChange={(e) => onCameraControlChange(e.target.value)}
-                disabled={isLoading || model !== 'veo-2.0-generate-exp'}
+                disabled={isLoading || model !== 'veo-2.0-generate-exp' || isGeneratingFirstFrame || isGeneratingLastFrame}
               >
                 <option value="">{t('selectOption')}</option>
                 <option value="FIXED">FIXED</option>
@@ -308,7 +340,7 @@ function Sidebar({
                 className="form-select"
                 value={duration}
                 onChange={(e) => onDurationChange(parseInt(e.target.value, 10))}
-                disabled={isLoading}
+                disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
               >
                 {(model === 'veo-3.0-generate-preview' || model === 'veo-2.0-generate-exp')
                   ? <option value={8}>8s</option>
@@ -328,14 +360,14 @@ function Sidebar({
                 placeholder={t('gcsOutputBucketPlaceholder')}
                 value={gcsOutputBucket}
                 onChange={(e) => onGcsOutputBucketChange(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
               />
             </div>
 
             <button
               className="btn btn-primary w-100 mt-4"
               onClick={onGenerateClick}
-              disabled={isLoading || isRefining || !prompt.trim() || processingTaskCount >= 4}
+              disabled={isLoading || isRefining || !prompt.trim() || processingTaskCount >= 4 || isGeneratingFirstFrame || isGeneratingLastFrame}
             >
               {isLoading ? <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>{t('generatingButtonInProgress')}</> : (processingTaskCount >= 4 ? <><i className="bi bi-exclamation-triangle-fill me-2"></i>{t('maxProcessingTasksButton')}</> : <><i className="bi bi-magic me-2"></i>{t('generateButtonDefault')}</>)}
             </button>
