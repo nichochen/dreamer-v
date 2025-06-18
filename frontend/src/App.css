@@ -108,6 +108,8 @@ body {
   overflow-y: auto; /* Allow sidebar to scroll independently if content exceeds its height */
   flex-shrink: 0; /* Prevent sidebar from shrinking when main content grows */
   /* Bootstrap classes like bg-light, p-3, border-end are applied in App.js */
+  -webkit-mask-image: linear-gradient(transparent, black 10%, black 90%, transparent);
+  mask-image: linear-gradient(transparent, black 10%, black 90%, transparent);
 }
 
 .main-content-area {
@@ -149,7 +151,8 @@ body {
   overflow: hidden; /* Ensure play icon doesn't spill out if it's larger */
   position: relative; /* Needed for absolute positioning of border element or pseudo-elements */
   box-sizing: border-box; /* Ensure padding and border are included in the element's total width and height */
-  transition: transform 0.2s ease-in-out; /* Add transition for smooth scaling */
+  transition: transform 0.2s ease-in-out, box-shadow 0.3s ease-in-out; /* Add transition for smooth scaling and glow */
+  box-shadow: 0 0 8px rgba(147, 169, 255, 0.6); /* Subtle light blue glow */
 }
 
 .thumbnail-container:hover {
@@ -333,6 +336,7 @@ body {
 .custom-pill-toggle-btn i {
   margin-right: 8px; /* Space between icon and text */
   font-size: 1rem; /* Icon size */
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.7); /* Subtle white glow */
 }
 
 .custom-pill-toggle-btn.active {
