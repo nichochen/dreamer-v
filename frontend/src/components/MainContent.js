@@ -243,6 +243,14 @@ function MainContent({
     };
   }, [videoPlayerSrcWithFragment, createModeVideoRef, activeView]);
 
+  let totalDurationFormatted = '0.00s';
+  if (activeView === 'create' && createModeClips && createModeClips.length > 0) {
+    const totalSeconds = createModeClips.reduce((acc, clip) => {
+      const duration = parseFloat(clip.duration_seconds);
+      return acc + (isNaN(duration) ? 0 : duration);
+    }, 0);
+    totalDurationFormatted = `${totalSeconds.toFixed(2)}s`;
+  }
 
   return (
     <main className={`main-content-area flex-grow-1 p-4 d-flex flex-column ${theme === 'dark' ? 'bg-dark text-light' : ''}`}>
@@ -419,9 +427,25 @@ function MainContent({
           </div>
           <div className={`video-clip-track card mt-2 ${theme === 'dark' ? 'bg-dark' : 'bg-light'}`}>
             <div className="card-body p-2 d-flex align-items-center"> {/* Changed to flex-row and align-items-center */}
-              {/* Fixed Film Icon (Moved outside scrollable container) */}
-              <div className="me-2" title={t('videoTrackHeadIconTitle', "Start of video track")}>
-                <i className={`bi bi-film ${theme === 'dark' ? 'text-light' : 'text-dark'}`} style={{ fontSize: '1.8rem', opacity: 0.8 }}></i>
+              {/* Fixed Film Icon and Duration (Moved outside scrollable container) */}
+              <div
+                className="me-2 d-flex flex-column align-items-center justify-content-center"
+                title={t('videoTrackHeadIconTitle', "Start of video track")}
+                style={{ minWidth: '50px' }} // Ensure space for icon and text
+              >
+                <i
+                  className={`bi bi-film ${theme === 'dark' ? 'text-light' : 'text-dark'}`}
+                  style={{ fontSize: '1.8rem', opacity: 0.8 }}
+                ></i>
+                {activeView === 'create' && (
+                  <div
+                    className={`${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'}`}
+                    style={{ fontSize: '0.70rem', marginTop: '3px', whiteSpace: 'nowrap' }}
+                    title={t('totalTrackDurationLabel', `Total duration: ${totalDurationFormatted}`, { duration: totalDurationFormatted })}
+                  >
+                    {totalDurationFormatted}
+                  </div>
+                )}
               </div>
               {/* Combined Scrollable Container for Timeline and Clips */}
               <div style={{ overflowX: 'auto', flexGrow: 1 }}> {/* Added flexGrow: 1 */}
