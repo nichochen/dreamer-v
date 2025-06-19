@@ -293,7 +293,7 @@ body {
 
 .video-resize-handle {
   width: 100%;
-  height: 15px; /* A bit taller for easier grabbing */
+  height: 25px; /* Made longer (taller) as per request */
   background-color: var(--bs-secondary-bg); /* Use Bootstrap variable for theme awareness */
   cursor: ns-resize;
   display: flex;

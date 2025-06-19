@@ -64,9 +64,18 @@ function MainContent({
   const [mouseOverEdgeInfo, setMouseOverEdgeInfo] = useState(null); // { clipId: string, side: 'start' | 'end' } | null
   const [draggingState, setDraggingState] = useState(null); // { clipId, handleType: 'start' | 'end', initialMouseX, initialStartOffset, initialDuration, originalDuration }
   const [videoPlayerSrcWithFragment, setVideoPlayerSrcWithFragment] = useState(null); // For create mode player
+  // const [formattedClipInfoString, setFormattedClipInfoString] = useState(''); // State for formatted clip info - REMOVED as per new play/pause logic
+  const [isPlayingTrack, setIsPlayingTrack] = useState(false); // State for track playback mode
+  const [currentTrackPlaybackClipIndex, setCurrentTrackPlaybackClipIndex] = useState(0); // Index for sequential playback
+  const [trackPlaylist, setTrackPlaylist] = useState([]); // Holds the structured playlist for track playback
+  const [timelineCurrentTime, setTimelineCurrentTime] = useState(0); // For general video time, and playhead when NOT in track mode
+  const [smoothTrackPlayheadTime, setSmoothTrackPlayheadTime] = useState(0); // Timer-driven for track playback playhead
+  const trackPlaybackStartTimestampRef = useRef(0); // Stores performance.now() when track play starts
+  const musicAudioRef = useRef(null); // Ref for the music audio element
 
-  const MIN_CLIP_DURATION_SECONDS = 0.5; // Minimum duration for a clip
+  const MIN_CLIP_DURATION_SECONDS = 1.0; // Minimum duration for a clip
   const EDGE_HOTZONE_WIDTH = 15; // Pixels for edge hover detection
+  const MIN_CLIP_WIDTH_FOR_DRAG_HANDLE_PX = 40; // Min clip width in pixels to show drag handle
 
   // Handle Mouse Down on Resize Handles
   const handleMouseDownOnClipResize = (e, clip, handleType) => {
@@ -176,9 +185,34 @@ function MainContent({
     }
   }, [selectedMusicFile]);
 
-  // Effect to update video player src with media fragments for trimmed playback
+  // Effect to update video player src with media fragments for trimmed playback (when NOT in track playback mode)
   useEffect(() => {
-    if (activeView === 'create' && activeCreateModeVideoSrc && selectedClipInTrack && createModeClips.length > 0) {
+    if (isPlayingTrack || activeView !== 'create') { // Do not run if playing track or not in create view
+      // When stopping track playback, we might want to reset to selected clip
+      if (!isPlayingTrack && activeView === 'create' && activeCreateModeVideoSrc && selectedClipInTrack && createModeClips.length > 0) {
+        const selectedClip = createModeClips.find(clip => clip.trackInstanceId === selectedClipInTrack);
+        if (selectedClip) {
+          const startTime = parseFloat(selectedClip.start_offset_seconds) || 0;
+          const duration = parseFloat(selectedClip.duration_seconds);
+          if (!isNaN(duration) && duration > 0) {
+            const endTime = startTime + duration;
+            setVideoPlayerSrcWithFragment(`${activeCreateModeVideoSrc}#t=${startTime.toFixed(3)},${endTime.toFixed(3)}`);
+          } else {
+            setVideoPlayerSrcWithFragment(`${activeCreateModeVideoSrc}#t=${startTime.toFixed(3)}`);
+          }
+        } else {
+          setVideoPlayerSrcWithFragment(activeCreateModeVideoSrc);
+        }
+      } else if (!isPlayingTrack && activeView === 'create' && activeCreateModeVideoSrc) {
+        setVideoPlayerSrcWithFragment(activeCreateModeVideoSrc);
+      } else if (!isPlayingTrack) {
+         setVideoPlayerSrcWithFragment(null); // Clear src if not in create or no active src
+      }
+      return; 
+    }
+
+    // Original logic for selected clip playback (only if !isPlayingTrack and in create view)
+    if (activeCreateModeVideoSrc && selectedClipInTrack && createModeClips.length > 0) {
       const selectedClip = createModeClips.find(clip => clip.trackInstanceId === selectedClipInTrack);
       if (selectedClip) {
         const startTime = parseFloat(selectedClip.start_offset_seconds) || 0;
@@ -196,17 +230,21 @@ function MainContent({
     } else if (activeView === 'create' && activeCreateModeVideoSrc) {
       setVideoPlayerSrcWithFragment(activeCreateModeVideoSrc); // No specific clip selected, play full
     } else {
-      setVideoPlayerSrcWithFragment(null); // No video src
+      // This case should be covered by the !isPlayingTrack check at the beginning of the effect
+      // or by the general activeCreateModeVideoSrc check.
+      // If not playing track and no specific conditions met, src might be null or just activeCreateModeVideoSrc.
+      // The initial part of this modified effect aims to handle this.
     }
-  }, [activeView, activeCreateModeVideoSrc, selectedClipInTrack, createModeClips]);
+  }, [activeView, activeCreateModeVideoSrc, selectedClipInTrack, createModeClips, isPlayingTrack]);
 
-  // Effect for custom looping based on media fragments
+  // Effect for custom looping based on media fragments (when NOT in track playback mode)
   useEffect(() => {
     const videoElement = createModeVideoRef.current;
-    if (!videoElement || !videoPlayerSrcWithFragment || activeView !== 'create') {
-      return; // Exit if no video, no fragment src, or not in create view
+    if (isPlayingTrack || !videoElement || !videoPlayerSrcWithFragment || activeView !== 'create') {
+      return; 
     }
 
+    // Original custom looping logic for single selected clip
     const fragmentString = videoPlayerSrcWithFragment.split('#t=')[1];
     if (!fragmentString) return; // Exit if no fragment part
 
@@ -241,7 +279,227 @@ function MainContent({
       videoElement.removeEventListener('timeupdate', handleTimeUpdate);
       videoElement.removeEventListener('loadeddata', handleLoadedData);
     };
-  }, [videoPlayerSrcWithFragment, createModeVideoRef, activeView]);
+  }, [videoPlayerSrcWithFragment, createModeVideoRef, activeView, isPlayingTrack]); // Added isPlayingTrack to dependencies
+
+  // Effect to set the video source when in track playback mode using trackPlaylist
+  useEffect(() => {
+    if (isPlayingTrack && activeView === 'create' && trackPlaylist.length > 0 && currentTrackPlaybackClipIndex < trackPlaylist.length) {
+      const playlistItem = trackPlaylist[currentTrackPlaybackClipIndex];
+      console.log(`[Track Playback] Attempting to set source for clip index ${currentTrackPlaybackClipIndex}:`, playlistItem);
+      // playlistItem already has src, startTime, endTime, duration
+      if (playlistItem && playlistItem.src) {
+        const newSrc = `${playlistItem.src}#t=${playlistItem.startTime.toFixed(3)},${playlistItem.endTime.toFixed(3)}`;
+        console.log(`[Track Playback] Setting videoPlayerSrcWithFragment to: ${newSrc}`);
+        setVideoPlayerSrcWithFragment(newSrc);
+      } else {
+         console.warn("[Track Playback] Playlist item to play is invalid or missing src:", playlistItem);
+         setIsPlayingTrack(false); // Stop playback if data is insufficient
+         setCurrentTrackPlaybackClipIndex(0);
+      }
+    }
+    // If isPlayingTrack becomes false, the other useEffect for selectedClipInTrack should take over.
+  }, [isPlayingTrack, currentTrackPlaybackClipIndex, trackPlaylist, activeView, t]); // Depends on trackPlaylist now
+
+  // Effect to build the trackPlaylist when createModeClips changes
+  useEffect(() => {
+    if (activeView === 'create' && createModeClips && createModeClips.length > 0) {
+      const newPlaylist = createModeClips.map(clip => {
+        const videoSrc = clip.video_url || (clip.local_video_path ? `${BACKEND_URL}${clip.local_video_path}` : null);
+        const startTime = parseFloat(clip.start_offset_seconds) || 0;
+        const duration = parseFloat(clip.duration_seconds);
+        
+        if (!videoSrc || isNaN(duration) || duration <= 0) {
+          console.warn("Skipping invalid clip for playlist:", clip);
+          return null; // Skip invalid clips
+        }
+        return {
+          id: clip.trackInstanceId,
+          src: videoSrc,
+          startTime: startTime,
+          duration: duration,
+          endTime: startTime + duration, // Calculated for convenience
+        };
+      }).filter(item => item !== null); // Remove nulls (invalid clips)
+      setTrackPlaylist(newPlaylist);
+    } else {
+      setTrackPlaylist([]); // Clear playlist if no clips or not in create view
+    }
+  }, [createModeClips, activeView, BACKEND_URL]); // Removed 't' as it's not directly used here for now
+
+  // Effect to handle 'ended' and 'error' events for sequential track playback
+  useEffect(() => {
+    const videoElement = createModeVideoRef.current;
+    if (!videoElement || !isPlayingTrack || activeView !== 'create' || !videoPlayerSrcWithFragment || trackPlaylist.length === 0) {
+      // console.log("[Track Playback EVT] Effect skipped", { isPlayingTrack, videoElementExists: !!videoElement, videoPlayerSrcWithFragmentExists: !!videoPlayerSrcWithFragment, trackPlaylistLength: trackPlaylist.length });
+      return;
+    }
+    
+    console.log(`[Track Playback EVT] Attaching listeners for clip index ${currentTrackPlaybackClipIndex}. Src: ${videoPlayerSrcWithFragment}`);
+
+    const advanceToNextClip = (reason) => {
+      console.log(`[Track Playback EVT] Advancing clip from index ${currentTrackPlaybackClipIndex}. Reason: ${reason}`);
+      videoElement.pause(); // Ensure paused before state change
+      const nextClipIndex = currentTrackPlaybackClipIndex + 1;
+      if (nextClipIndex < trackPlaylist.length) {
+        setCurrentTrackPlaybackClipIndex(nextClipIndex);
+      } else {
+        console.log("[Track Playback EVT] End of playlist.");
+        if (musicAudioRef.current) {
+          musicAudioRef.current.pause();
+          musicAudioRef.current.currentTime = 0; 
+        }
+        setIsPlayingTrack(false);
+        setCurrentTrackPlaybackClipIndex(0);
+      }
+    };
+
+    const handleNativeEnded = () => {
+      console.log(`[Track Playback EVT] Native 'ended' event for clip index ${currentTrackPlaybackClipIndex}. currentTime: ${videoElement.currentTime}`);
+      // This is a fallback. Timeupdate should ideally handle fragment ends.
+      // Only advance if timeupdate hasn't already.
+      // This check is tricky; for now, let timeupdate be primary.
+      // If timeupdate is removed or fails, this might be the only trigger.
+      // Let's assume timeupdate will remove itself, so if this fires, timeupdate didn't complete its job for this segment.
+      advanceToNextClip("native_ended");
+    };
+
+    const handleTrackClipError = (e) => {
+      const currentItem = trackPlaylist[currentTrackPlaybackClipIndex];
+      console.error("[Track Playback EVT] Error playing track clip:", currentItem || "Unknown item", e);
+      if (musicAudioRef.current) {
+        musicAudioRef.current.pause();
+        musicAudioRef.current.currentTime = 0;
+      }
+      setIsPlayingTrack(false);
+      setCurrentTrackPlaybackClipIndex(0);
+    };
+
+    const handleCanPlayThrough = () => {
+      console.log(`[Track Playback EVT] 'canplaythrough' for clip index ${currentTrackPlaybackClipIndex}. Paused: ${videoElement.paused}`);
+      if (isPlayingTrack && videoElement.paused) {
+        videoElement.play().then(() => {
+          console.log(`[Track Playback EVT] Play initiated successfully for clip index ${currentTrackPlaybackClipIndex}`);
+        }).catch(e => console.warn(`[Track Playback EVT] Play() failed on canplaythrough for clip index ${currentTrackPlaybackClipIndex}:`, e));
+      }
+    };
+
+    const currentPlaylistItem = trackPlaylist[currentTrackPlaybackClipIndex];
+    let timeUpdateHandler = null;
+
+    if (currentPlaylistItem && currentPlaylistItem.endTime > 0) { // Ensure endTime is valid
+      const { endTime: segmentEndTime, startTime: segmentStartTime } = currentPlaylistItem;
+      console.log(`[Track Playback EVT] Setting up timeupdate for clip index ${currentTrackPlaybackClipIndex}, startTime: ${segmentStartTime}, endTime: ${segmentEndTime}`);
+
+      timeUpdateHandler = () => {
+        // console.log(`[Track Playback EVT] Timeupdate: ${videoElement.currentTime} / ${segmentEndTime}`);
+        if (videoElement.currentTime >= segmentEndTime - 0.15) { // Slightly larger buffer
+          console.log(`[Track Playback EVT] Timeupdate: Segment end detected for clip index ${currentTrackPlaybackClipIndex}. Time: ${videoElement.currentTime}`);
+          // videoElement.removeEventListener('timeupdate', timeUpdateHandler); // Clean self immediately
+          advanceToNextClip("timeupdate");
+        }
+      };
+      videoElement.addEventListener('timeupdate', timeUpdateHandler);
+    }
+    
+    videoElement.addEventListener('ended', handleNativeEnded); 
+    videoElement.addEventListener('error', handleTrackClipError);
+    videoElement.addEventListener('canplaythrough', handleCanPlayThrough); 
+
+    // Rely on canplaythrough to initiate play.
+    
+    return () => {
+      console.log(`[Track Playback EVT] Cleaning up listeners for clip index ${currentTrackPlaybackClipIndex}. Next index will be: ${currentTrackPlaybackClipIndex +1 } (or 0 if end). Src was: ${videoPlayerSrcWithFragment}`);
+      videoElement.removeEventListener('ended', handleNativeEnded);
+      videoElement.removeEventListener('error', handleTrackClipError);
+      videoElement.removeEventListener('canplaythrough', handleCanPlayThrough);
+      if (timeUpdateHandler) {
+        // console.log("[Track Playback EVT] Removing timeupdate listener in cleanup.");
+        videoElement.removeEventListener('timeupdate', timeUpdateHandler);
+      }
+    };
+  }, [isPlayingTrack, currentTrackPlaybackClipIndex, trackPlaylist, createModeVideoRef, activeView, videoPlayerSrcWithFragment, t]);
+
+  // Effect to update timelineCurrentTime based on video player's currentTime (ONLY WHEN NOT in track playback mode)
+  useEffect(() => {
+    const videoElement = createModeVideoRef.current;
+
+    if (activeView === 'create' && videoElement && !isPlayingTrack) { 
+      const handleTimeUpdate = () => {
+        let globalCurrentTime = 0;
+        if (selectedClipInTrack && createModeClips && createModeClips.length > 0) {
+          let offsetForSelectedClip = 0;
+          let foundSelectedClip = false;
+          for (let i = 0; i < createModeClips.length; i++) {
+            if (createModeClips[i].trackInstanceId === selectedClipInTrack) {
+              foundSelectedClip = true;
+              break;
+            }
+            offsetForSelectedClip += (parseFloat(createModeClips[i].duration_seconds) || 0);
+          }
+          if (foundSelectedClip) {
+            globalCurrentTime = offsetForSelectedClip + videoElement.currentTime;
+          } else {
+            globalCurrentTime = videoElement.currentTime; 
+          }
+        } else {
+          globalCurrentTime = videoElement.currentTime; 
+        }
+        setTimelineCurrentTime(globalCurrentTime);
+      };
+
+      videoElement.addEventListener('timeupdate', handleTimeUpdate);
+      handleTimeUpdate(); 
+
+      return () => {
+        videoElement.removeEventListener('timeupdate', handleTimeUpdate);
+      };
+    } else if (!isPlayingTrack) { 
+      setTimelineCurrentTime(0);
+    }
+  }, [
+    activeView, 
+    createModeVideoRef, 
+    videoPlayerSrcWithFragment, 
+    isPlayingTrack, 
+    selectedClipInTrack, 
+    createModeClips
+  ]);
+
+  // Effect for timer-driven smooth playhead during track playback
+  useEffect(() => {
+    let animationFrameId = null;
+    const isPlayingTrackRef = { current: isPlayingTrack }; // Use a ref to ensure RAF loop has latest state
+    isPlayingTrackRef.current = isPlayingTrack;
+
+
+    if (isPlayingTrack && activeView === 'create') {
+      // trackPlaybackStartTimestampRef.current is set when play is clicked
+      console.log("[Smooth Playhead] Starting timer. Timestamp ref:", trackPlaybackStartTimestampRef.current);
+
+      const frameUpdate = (timestamp) => {
+        if (!isPlayingTrackRef.current) { // Check ref inside loop
+          console.log("[Smooth Playhead] Loop: isPlayingTrackRef is false, stopping RAF.");
+          return; // Stop the loop if no longer playing
+        }
+        const elapsedTimeSeconds = (timestamp - trackPlaybackStartTimestampRef.current) / 1000;
+        setSmoothTrackPlayheadTime(elapsedTimeSeconds > 0 ? elapsedTimeSeconds : 0); // Ensure non-negative
+        animationFrameId = requestAnimationFrame(frameUpdate);
+      };
+      animationFrameId = requestAnimationFrame(frameUpdate);
+
+      return () => {
+        console.log("[Smooth Playhead] Cleaning up timer (canceling RAF).");
+        cancelAnimationFrame(animationFrameId);
+      };
+    } else {
+      // Reset smooth playhead time if not playing track or not in create view
+      // setSmoothTrackPlayheadTime(0); // This might cause a flicker if called too often.
+      // Let the play button click reset it.
+    }
+  }, [isPlayingTrack, activeView]); // Only depends on isPlayingTrack and activeView to start/stop timer
+
+
+  // REMOVED useEffect for formattedClipInfoString as it's no longer used by the play button's primary action
 
   let totalDurationFormatted = '0.00s';
   if (activeView === 'create' && createModeClips && createModeClips.length > 0) {
@@ -398,12 +656,12 @@ function MainContent({
             <div className="card-body d-flex justify-content-center align-items-center" style={{ overflow: 'hidden', height: `${videoHeight}px` }}>
               {activeCreateModeVideoSrc ? (
                 <video
-                  key={activeCreateModeVideoSrc} // Key is the base URL
+                  key={videoPlayerSrcWithFragment || activeCreateModeVideoSrc} // Key might need to be more dynamic for track playback if base URLs change
                   ref={createModeVideoRef}
                   controls
-                  autoPlay
-                  // loop // Removed: Implementing custom loop for fragments
-                  src={videoPlayerSrcWithFragment || activeCreateModeVideoSrc} // Use fragment if available, else base
+                  autoPlay={!isPlayingTrack} // Autoplay for single clip selection, track playback handles play manually/via src change
+                  // loop // Loop is handled by custom useEffect when !isPlayingTrack
+                  src={videoPlayerSrcWithFragment || activeCreateModeVideoSrc}
                   style={{ maxHeight: '140%', maxWidth: '140%', minWidth:'140%', minHeight:'140%', objectFit: 'contain', backgroundColor: theme === 'dark' ? '#000000' : '#f8f9fa' }}
                 >
                   {t('videoTagNotSupported')}
@@ -415,7 +673,7 @@ function MainContent({
                 </div>
               )}
             </div>
-            {activeView === 'dream' && (
+            {activeView === 'create' && (
             <div
               className="video-resize-handle"
               onMouseDown={onMouseDownResize}
@@ -426,7 +684,7 @@ function MainContent({
             )}
           </div>
           <div className={`video-clip-track card mt-2 ${theme === 'dark' ? 'bg-dark' : 'bg-light'}`}>
-            <div className="card-body p-2 d-flex align-items-center"> {/* Changed to flex-row and align-items-center */}
+            <div className="card-body p-2 d-flex align-items-start"> {/* Changed to flex-row and align-items-start */}
               {/* Fixed Film Icon and Duration (Moved outside scrollable container) */}
               <div
                 className="me-2 d-flex flex-column align-items-center justify-content-center"
@@ -439,16 +697,105 @@ function MainContent({
                 ></i>
                 {activeView === 'create' && (
                   <div
-                    className={`${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'}`}
-                    style={{ fontSize: '0.70rem', marginTop: '3px', whiteSpace: 'nowrap' }}
+                    className={`badge ${theme === 'dark' ? 'bg-light text-dark' : 'bg-secondary text-white'} d-flex align-items-center mb-2`}
+                    style={{ fontSize: '0.70rem', marginTop: '3px', whiteSpace: 'nowrap', padding: '0.25em 0.4em' }}
                     title={t('totalTrackDurationLabel', `Total duration: ${totalDurationFormatted}`, { duration: totalDurationFormatted })}
                   >
+                    <i className="bi bi-clock me-1"></i>
                     {totalDurationFormatted}
                   </div>
                 )}
+                {/* Play/Pause button for the track */}
+                <button
+                  className={`btn btn-sm btn-light mt-1 rounded-circle p-1`}
+                  style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  onClick={() => {
+                    const videoElement = createModeVideoRef.current;
+                    if (isPlayingTrack) { 
+                      if (videoElement) videoElement.pause();
+                      if (musicAudioRef.current) {
+                        musicAudioRef.current.pause();
+                      }
+                      setIsPlayingTrack(false);
+                    } else { 
+                      if (trackPlaylist.length > 0) {
+                        trackPlaybackStartTimestampRef.current = performance.now();
+                        setSmoothTrackPlayheadTime(0); // Reset timer-driven playhead
+                        setCurrentTrackPlaybackClipIndex(0); 
+                        setIsPlayingTrack(true);
+                        if (musicAudioRef.current) {
+                          musicAudioRef.current.currentTime = 0;
+                          musicAudioRef.current.play().catch(e => console.warn("Music play failed", e));
+                        }
+                      }
+                    }
+                  }}
+                  disabled={isCreatingVideo || trackPlaylist.length === 0}
+                  title={isPlayingTrack ? t('pauseTrackButtonTitle', 'Pause track') : t('playTrackButtonTitle', 'Play track (locks editing)')}
+                >
+                  <i className={`bi ${isPlayingTrack ? 'bi-pause-fill' : 'bi-play-fill'}`}></i>
+                </button>
               </div>
-              {/* Combined Scrollable Container for Timeline and Clips */}
-              <div style={{ overflowX: 'auto', flexGrow: 1 }}> {/* Added flexGrow: 1 */}
+              {/* Combined Scrollable Container for Timeline and Clips with Overlay */}
+              <div style={{ overflowX: 'auto', flexGrow: 1, position: 'relative' }}> {/* Added position: relative for overlay */}
+                {/* Timeline Playhead - Visible only during track playback */}
+                {activeView === 'create' && isPlayingTrack && videoPlayerSrcWithFragment && (
+                  <div 
+                    className="timeline-playhead"
+                    style={{
+                      position: 'absolute',
+                      left: `${((isPlayingTrack ? smoothTrackPlayheadTime : timelineCurrentTime) * pixelsPerSecond) + 20}px`,
+                      top: 0, 
+                      bottom: 0, 
+                      width: '2px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.75)', // White with transparency
+                      zIndex: 55, 
+                      pointerEvents: 'none', 
+                    }}
+                  >
+                    {/* Top Dot */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '-4px', // Adjust for dot size (dotHeight/2)
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: '8px', // Dot diameter
+                      height: '8px', // Dot diameter
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)', // Slightly more opaque white
+                      borderRadius: '50%',
+                    }}></div>
+                    {/* Bottom Dot */}
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '-4px', // Adjust for dot size (dotHeight/2)
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: '8px', // Dot diameter
+                      height: '8px', // Dot diameter
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)', // Slightly more opaque white
+                      borderRadius: '50%',
+                    }}></div>
+                  </div>
+                )}
+                {isPlayingTrack && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    zIndex: 50, // Ensure it's above clips and timeline but below modals if any
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    borderRadius: '0.25rem', // Match parent's rounding
+                  }}>
+                    {/* Optional: Text on overlay, e.g., "Playback Active" */}
+                    {/* <p>{t('playbackActiveOverlayText', 'Playback Active')}</p> */}
+                  </div>
+                )}
                 <div
                   className="timeline-container mb-2"
                 style={{
@@ -500,7 +847,7 @@ function MainContent({
                 </div>
               </div>
               <DragDropContext onDragEnd={onDragEnd}>
-                <Droppable droppableId="clips" direction="horizontal" isDropDisabled={isCreatingVideo || !!draggingState} isCombineEnabled={false}>
+                <Droppable droppableId="clips" direction="horizontal" isDropDisabled={isCreatingVideo || !!draggingState || isPlayingTrack} isCombineEnabled={false}>
                   {(provided) => (
                     <div
                       ref={provided.innerRef}
@@ -511,14 +858,25 @@ function MainContent({
                       {createModeClips.length === 0 && <p className={`m-0 ${theme === 'dark' ? 'text-light' : 'text-muted'}`}>{t('createClipTrackPlaceholder')}</p>}
                       {createModeClips.map((clip, index) => {
                         const isResizingThisClip = draggingState && draggingState.clipId === clip.trackInstanceId;
-                        const showDragHandle = hoveredForDragHandleClipId === clip.trackInstanceId && !draggingState && !isCreatingVideo;
+                        const clipWidthPx = (parseFloat(clip.duration_seconds) || MIN_CLIP_DURATION_SECONDS) * pixelsPerSecond;
+                        const showDragHandle = hoveredForDragHandleClipId === clip.trackInstanceId && 
+                                               !draggingState && 
+                                               !isCreatingVideo && 
+                                               !isPlayingTrack && 
+                                               clipWidthPx >= MIN_CLIP_WIDTH_FOR_DRAG_HANDLE_PX;
+                        
+                        // Base class name parts that don't depend on Draggable's snapshot
+                        let baseItemClassName = `clip-thumbnail-item ${selectedClipInTrack === clip.trackInstanceId ? 'active' : ''}`;
+                        if (isPlayingTrack && trackPlaylist[currentTrackPlaybackClipIndex]?.id === clip.trackInstanceId) {
+                          baseItemClassName += ' playing'; // Class for highlighting the currently playing clip
+                        }
 
                         return (
                           <Draggable
                             key={clip.trackInstanceId}
                             draggableId={clip.trackInstanceId}
                             index={index}
-                            isDragDisabled={isCreatingVideo || !!draggingState} // Disable dragging if resizing or creating video
+                            isDragDisabled={isCreatingVideo || !!draggingState || isPlayingTrack} // Disable dragging if resizing, creating video, or playing track
                           >
                             {(providedDraggable, snapshot) => {
                               const startTime = parseFloat(clip.start_offset_seconds || 0).toFixed(2);
@@ -527,12 +885,18 @@ function MainContent({
                               const originalDuration = parseFloat(clip.original_duration_seconds).toFixed(2);
                               const tooltipText = `Start: ${startTime}s\nEnd: ${endTime}s\nDuration: ${duration}s\nOriginal: ${originalDuration}s`;
 
+                              // Add snapshot-dependent class parts here
+                              let finalItemClassName = baseItemClassName;
+                              if (!snapshot.isDragging && (hoveredClipId === clip.trackInstanceId || isResizingThisClip)) {
+                                finalItemClassName += ' interactive-border';
+                              }
+
                               return (
                               <div
                                 ref={providedDraggable.innerRef}
                                 {...providedDraggable.draggableProps} // Applied to the main container for positioning by R-B-DND
                                 // dragHandleProps will be applied to the custom handle, not here
-                                className={`clip-thumbnail-item ${selectedClipInTrack === clip.trackInstanceId ? 'active' : ''} ${!snapshot.isDragging && (hoveredClipId === clip.trackInstanceId || isResizingThisClip) ? 'interactive-border' : ''}`}
+                                className={finalItemClassName} // Use the fully constructed class name
                                 title={tooltipText}
                                 style={
                                   snapshot.isDragging
@@ -544,12 +908,12 @@ function MainContent({
                                       }
                                 }
                                 onClick={() => {
-                                  if (!draggingState && !snapshot.isDragging) {
+                                  if (!draggingState && !snapshot.isDragging && !isPlayingTrack) {
                                     onClipClick(clip);
                                   }
                                 }}
                                 onMouseEnter={(e) => {
-                                  if (!draggingState && !snapshot.isDragging) {
+                                  if (!draggingState && !snapshot.isDragging && !isPlayingTrack) {
                                     setHoveredClipId(clip.trackInstanceId); // For resize handles and border
                                     setHoveredForDragHandleClipId(clip.trackInstanceId); // For move icon
                                     const rect = e.currentTarget.getBoundingClientRect();
@@ -565,7 +929,7 @@ function MainContent({
                                 }}
                                 onMouseMove={(e) => {
                                   // Keep existing mouse move for resize handles
-                                  if (!draggingState && !snapshot.isDragging && hoveredClipId === clip.trackInstanceId) {
+                                  if (!draggingState && !snapshot.isDragging && !isPlayingTrack && hoveredClipId === clip.trackInstanceId) {
                                     const rect = e.currentTarget.getBoundingClientRect();
                                     const x = e.clientX - rect.left;
                                     if (x < EDGE_HOTZONE_WIDTH) {
@@ -584,7 +948,7 @@ function MainContent({
                                   }
                                 }}
                                 onMouseLeave={() => {
-                                  if (!draggingState && !snapshot.isDragging) {
+                                  if (!draggingState && !snapshot.isDragging && !isPlayingTrack) {
                                     setHoveredClipId(null);
                                     setHoveredForDragHandleClipId(null);
                                     setMouseOverEdgeInfo(null);
@@ -619,35 +983,38 @@ function MainContent({
                                 )}
 
                                 {/* Resize Handles */}
-                                {!snapshot.isDragging && !isCreatingVideo && (
+                                {!snapshot.isDragging && !isCreatingVideo && !isPlayingTrack && (
                                   <>
                                     {((mouseOverEdgeInfo?.clipId === clip.trackInstanceId && mouseOverEdgeInfo?.side === 'start') || (draggingState?.clipId === clip.trackInstanceId && draggingState?.handleType === 'start')) && (
                                       <div
                                         className="clip-resize-handle start"
-                                        style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', height: '20px', width: '10px', background: 'white', cursor: 'ew-resize', zIndex: 10, borderRadius: '3px', left: '-5px', boxShadow: '0 0 5px rgba(0,0,0,0.5)' }}
+                                        style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', height: '40px', width: '10px', background: 'white', cursor: 'ew-resize', zIndex: 10, borderRadius: '3px', left: '-5px', boxShadow: '0 0 5px rgba(0,0,0,0.5)' }}
                                         onMouseDownCapture={(e) => handleMouseDownOnClipResize(e, clip, 'start')}
                                       />
                                     )}
                                     {((mouseOverEdgeInfo?.clipId === clip.trackInstanceId && mouseOverEdgeInfo?.side === 'end') || (draggingState?.clipId === clip.trackInstanceId && draggingState?.handleType === 'end')) && (
                                       <div
                                         className="clip-resize-handle end"
-                                        style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', height: '20px', width: '10px', background: 'white', cursor: 'ew-resize', zIndex: 10, borderRadius: '3px', right: '-5px', boxShadow: '0 0 5px rgba(0,0,0,0.5)' }}
+                                        style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', height: '40px', width: '10px', background: 'white', cursor: 'ew-resize', zIndex: 10, borderRadius: '3px', right: '-5px', boxShadow: '0 0 5px rgba(0,0,0,0.5)' }}
                                         onMouseDownCapture={(e) => handleMouseDownOnClipResize(e, clip, 'end')}
                                       />
                                     )}
                                   </>
                                 )}
-                                <button
-                                  className="clip-delete-btn"
-                                  disabled={isCreatingVideo}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRemoveClipFromTrack(clip.trackInstanceId);
-                                  }}
-                                  title={t('removeClipFromTrackTitle')}
-                                >
-                                  <i className="bi bi-x-lg"></i>
-                                </button>
+                                {!isPlayingTrack && ( // Conditionally render delete button
+                                  <button
+                                    className="clip-delete-btn"
+                                    disabled={isCreatingVideo} // isPlayingTrack check is now on render
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // No need for !isPlayingTrack check here as button won't render if true
+                                      onRemoveClipFromTrack(clip.trackInstanceId);
+                                    }}
+                                    title={t('removeClipFromTrackTitle')}
+                                  >
+                                    <i className="bi bi-x-lg"></i>
+                                  </button>
+                                )}
                                 {clip.local_thumbnail_path ? (
                                   <img src={`${BACKEND_URL}${clip.local_thumbnail_path}`} alt={`Clip ${clip.task_id}`} />
                                 ) : (
@@ -701,7 +1068,7 @@ function MainContent({
                   if (musicTaskStatus === 'completed' && generatedMusicUrl) {
                     return (
                       <div className="mt-1 mb-1">
-                        <audio controls src={generatedMusicUrl} className="w-100" style={{ height: '30px' }}>
+                        <audio ref={musicAudioRef} controls src={generatedMusicUrl} className="w-100" style={{ height: '30px' }}>
                           {t('audioTagNotSupported')}
                         </audio>
                         {/* For future: Optionally, allow clearing Lyria-generated music too. */}
@@ -740,12 +1107,12 @@ function MainContent({
                           </button>
                         </div>
                         {uploadedMusicBackendUrl && (
-                          <audio key={uploadedMusicBackendUrl} controls src={uploadedMusicBackendUrl} className="w-100 mt-1" style={{ height: '30px' }}>
+                          <audio ref={musicAudioRef} key={uploadedMusicBackendUrl} controls src={uploadedMusicBackendUrl} className="w-100 mt-1" style={{ height: '30px' }}>
                             {t('audioTagNotSupported')}
                           </audio>
                         )}
                         {!uploadedMusicBackendUrl && uploadedMusicSrc && musicTaskStatus !== 'processing' && musicTaskStatus !== 'failed' && !isGeneratingMusic && (
-                          <audio key={uploadedMusicSrc} controls src={uploadedMusicSrc} className="w-100 mt-1" style={{ height: '30px' }}>
+                          <audio ref={musicAudioRef} key={uploadedMusicSrc} controls src={uploadedMusicSrc} className="w-100 mt-1" style={{ height: '30px' }}>
                             {t('audioTagNotSupported')}
                           </audio>
                         )}
