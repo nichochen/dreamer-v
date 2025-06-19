@@ -215,8 +215,8 @@ export const handleHistoryItemClick = async ({
 
           // Max duration check
           const MAX_TOTAL_DURATION_SECONDS = 60;
-          const currentTotalDuration = prevClips.reduce((sum, clip) => sum + (parseInt(clip.duration_seconds, 10) || 0), 0);
-          const newClipDuration = parseInt(task.duration_seconds, 10) || 0;
+          const currentTotalDuration = prevClips.reduce((sum, clip) => sum + (parseFloat(clip.duration_seconds) || 0), 0);
+          const newClipDuration = parseFloat(task.duration_seconds) || 0;
 
           if (currentTotalDuration + newClipDuration > MAX_TOTAL_DURATION_SECONDS) {
             alert(t('errorMaxDurationReached', { maxDuration: MAX_TOTAL_DURATION_SECONDS }));
@@ -224,7 +224,15 @@ export const handleHistoryItemClick = async ({
           }
 
           const newTrackInstanceId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-          const newClipInstance = { ...task, trackInstanceId: newTrackInstanceId };
+          // Add original_duration_seconds and start_offset_seconds
+          const newClipInstance = { 
+            ...task, 
+            trackInstanceId: newTrackInstanceId,
+            original_duration_seconds: parseFloat(task.duration_seconds) || 0, // Assuming task.duration_seconds is the original
+            start_offset_seconds: 0,
+            // Ensure duration_seconds for the instance is also set, it might be trimmed later
+            duration_seconds: parseFloat(task.duration_seconds) || 0 
+          };
 
           // Set the active video source to the newly added clip
           setActiveCreateModeVideoSrc(`${BACKEND_URL}${newClipInstance.local_video_path}`);

@@ -499,7 +499,7 @@ function App() {
       });
     }
     if (createModeVideoRef.current && activeCreateModeVideoSrc && activeView === 'create') {
-      createModeVideoRef.current.load();
+      // createModeVideoRef.current.load(); // Removed: autoPlay and key change should handle loading
       createModeVideoRef.current.play().catch(error => console.warn("Create mode video autoplay failed:", error));
     }
   }, [videoGcsUri, taskStatus, activeCreateModeVideoSrc, activeView]); // videoRef is stable, not needed in deps
@@ -652,7 +652,7 @@ function App() {
       setActiveCreateModeVideoSrc(`${BACKEND_URL}${clip.local_video_path}`);
       setSelectedClipInTrack(clip.trackInstanceId);
       if (createModeVideoRef.current) {
-        createModeVideoRef.current.load();
+        // createModeVideoRef.current.load(); // Removed: autoPlay and key change should handle loading
         createModeVideoRef.current.play().catch(e => console.warn("Clip track play failed", e));
       }
     } else {
@@ -677,6 +677,19 @@ function App() {
     items.splice(result.destination.index, 0, reorderedItem);
 
     setCreateModeClips(items);
+  };
+
+  const handleUpdateClip = (trackInstanceId, newStartOffset, newDuration) => {
+    setCreateModeClips(prevClips =>
+      prevClips.map(clip =>
+        clip.trackInstanceId === trackInstanceId
+          ? { ...clip, start_offset_seconds: newStartOffset, duration_seconds: newDuration }
+          : clip
+      )
+    );
+    // If the currently playing/selected clip is the one being updated,
+    // you might want to re-evaluate its playback or seek if the start_offset changed.
+    // For now, just updating the data.
   };
 
   // promptActionButtons need to use the new handlers
@@ -792,6 +805,7 @@ function App() {
               pixelsPerSecond={pixelsPerSecond}
               BACKEND_URL={BACKEND_URL}
               onDragEnd={handleDragEnd} // Pass the new handler
+              onUpdateClip={handleUpdateClip} // Pass the new handler
               // Music Props for MainContent track
               onMusicFileUpload={(e) => Handlers.handleMusicFileUpload(e, setSelectedMusicFile, setUploadedMusicBackendUrl, setMusicErrorMessage, t)}
               onGenerateMusicClick={handleGenerateMusicFeatureComingSoon} // Use the new alert handler

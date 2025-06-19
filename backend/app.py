@@ -103,12 +103,14 @@ class VideoGenerationTask(db.Model):
     music_file_path = db.Column(db.String(1024), nullable=True, default=None) # Path to music file for composite video
 
     def __repr__(self):
-        return (f"<VideoGenerationTask(id='{self.id}', prompt='{self.prompt[:30]}...', "
-                f"model='{self.model}', aspect_ratio='{self.aspect_ratio}', "
-                f"camera_control='{self.camera_control}', duration_seconds={self.duration_seconds}, "
-                f"status='{self.status}', image_filename='{self.image_filename}', "
-                f"video_uri='{self.video_uri}', user='{self.user}', "
-                f"last_frame_filename='{self.last_frame_filename}', music_file_path='{self.music_file_path}')>")
+        attributes = []
+        for attr, value in self.__dict__.items():
+            if not attr.startswith('_sa_'): # Exclude SQLAlchemy internal attributes
+                if attr == 'prompt' and value is not None:
+                    attributes.append(f"{attr}='{str(value)[:30]}...'")
+                else:
+                    attributes.append(f"{attr}='{value}'")
+        return f"<VideoGenerationTask({', '.join(attributes)})>"
 
     def to_dict(self):
         video_url_http = None
@@ -747,19 +749,27 @@ def delete_task_route(task_id):
 # --- Static file serving for videos and thumbnails ---
 @app.route('/api/videos/<filename>')
 def serve_video(filename):
-    return send_from_directory(videos_dir, filename)
+    response = send_from_directory(videos_dir, filename)
+    response.headers['Cache-Control'] = 'public, max-age=3600'
+    return response
 
 @app.route('/api/thumbnails/<filename>')
 def serve_thumbnail(filename):
-    return send_from_directory(thumbnails_dir, filename)
+    response = send_from_directory(thumbnails_dir, filename)
+    response.headers['Cache-Control'] = 'public, max-age=3600'
+    return response
 
 @app.route('/api/uploads/<filename>')
 def serve_upload(filename):
-    return send_from_directory(uploads_dir, filename)
+    response = send_from_directory(uploads_dir, filename)
+    response.headers['Cache-Control'] = 'public, max-age=3600'
+    return response
 
 @app.route('/api/user_uploaded_music/<filename>')
 def serve_user_uploaded_music(filename):
-    return send_from_directory(user_uploaded_music_dir, filename)
+    response = send_from_directory(user_uploaded_music_dir, filename)
+    response.headers['Cache-Control'] = 'public, max-age=3600'
+    return response
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -775,6 +785,8 @@ def user_info():
 # --- Composite Video Creation ---
 def _run_composite_video_creation(task_id, source_clip_task_ids_and_prompts, music_file_path_param=None):
     with app.app_context():
+        print("@@VideoGenerationTask",VideoGenerationTask)
+        print("@@source_clip_task_ids_and_prompts",source_clip_task_ids_and_prompts)
         composite_task = VideoGenerationTask.query.get(task_id)
         if not composite_task:
             print(f"Composite task {task_id} not found for processing.")
@@ -835,8 +847,64 @@ def _run_composite_video_creation(task_id, source_clip_task_ids_and_prompts, mus
                 if not os.path.exists(clip_file_path):
                     raise ValueError(f"Local video file for clip task {source_task_id} not found at {clip_file_path}.")
                 
-                video_clips_to_concatenate.append(VideoFileClip(clip_file_path))
-                total_duration += source_task.duration_seconds # Assuming duration_seconds is reliable
+                # Get raw start offset and duration from clip_info
+                raw_start_offset = clip_info.get('start_offset_seconds')
+                raw_segment_duration = clip_info.get('duration_seconds')
+
+                try:
+                    # Default start_offset to 0.0 if None or missing, otherwise convert
+                    start_offset = float(raw_start_offset) if raw_start_offset is not None else 0.0
+                    
+                    # If raw_segment_duration is None or missing, default to the full duration of the source_task's video.
+                    # Otherwise, convert the provided segment duration.
+                    if raw_segment_duration is None:
+                        # Ensure source_task.duration_seconds is float for calculations
+                        segment_duration = float(source_task.duration_seconds) 
+                    else:
+                        segment_duration = float(raw_segment_duration)
+                        
+                except (ValueError, TypeError) as e:
+                    error_detail = (f"raw_start_offset='{raw_start_offset}', "
+                                    f"raw_segment_duration='{raw_segment_duration}' from clip_info, "
+                                    f"source_task_duration='{source_task.duration_seconds}'")
+                    raise ValueError(
+                        f"Invalid start_offset_seconds or duration_seconds for clip {source_task_id}. "
+                        f"Details: {error_detail}. Error: {e}"
+                    )
+
+                current_full_clip = VideoFileClip(clip_file_path)
+                original_clip_duration = current_full_clip.duration # True duration of the video file
+
+                # Calculate the intended end point of the segment in the original clip's timeline
+                intended_subclip_end = start_offset + segment_duration
+                
+                # Determine the actual segment duration and end point, respecting original clip boundaries
+                actual_subclip_end = min(intended_subclip_end, original_clip_duration)
+                actual_segment_duration = actual_subclip_end - start_offset
+                
+                if actual_segment_duration < 0: # Ensure duration is not negative (e.g. if start_offset is beyond original_clip_duration)
+                    actual_segment_duration = 0
+
+                if actual_segment_duration > 0:
+                    processed_segment_clip = None
+                    # Only apply subclip if the desired segment is different from the full original clip
+                    if start_offset != 0.0 or actual_subclip_end != original_clip_duration:
+                        processed_segment_clip = current_full_clip.subclipped(start_offset, actual_subclip_end)
+                        # DO NOT close current_full_clip here. The subclip (processed_segment_clip)
+                        # relies on the original clip's reader.
+                        # The clips in video_clips_to_concatenate will be closed in the main finally block.
+                    else:
+                        # No subclip needed, the segment is the entire original clip.
+                        # processed_segment_clip will be current_full_clip.
+                        # current_full_clip will be added to video_clips_to_concatenate and closed by the main finally block.
+                        processed_segment_clip = current_full_clip 
+                    
+                    video_clips_to_concatenate.append(processed_segment_clip)
+                    total_duration += actual_segment_duration # Add the duration of the actual segment used
+                else:
+                    # Segment duration is <= 0, so we don't use this clip. Close the VideoFileClip object.
+                    current_full_clip.close()
+
                 if i == 0: 
                     first_clip_aspect_ratio = source_task.aspect_ratio
 
@@ -1166,7 +1234,9 @@ def serve_music(filename):
     safe_filename = secure_filename(filename)
     if not safe_filename: # secure_filename returns empty string for invalid names
         return jsonify({"error": "Invalid filename"}), 400
-    return send_from_directory(generated_music_dir, safe_filename)
+    response = send_from_directory(generated_music_dir, safe_filename)
+    response.headers['Cache-Control'] = 'public, max-age=3600'
+    return response
 
 @app.route('/api/music-task/<task_id>', methods=['DELETE'])
 def delete_music_task_route(task_id):

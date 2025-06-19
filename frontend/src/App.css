@@ -443,7 +443,7 @@ body {
   cursor: pointer;
   border: 2px solid transparent;
   border-radius: 0.25rem;
-  overflow: hidden;
+  /* overflow: hidden; */ /* Removed to potentially fix dnd disappearing item issue */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -465,6 +465,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: inherit; /* Ensure image respects parent's border-radius if overflow is not hidden */
 }
 
 .clip-thumbnail-placeholder {
@@ -510,4 +511,30 @@ body {
 
 .clip-delete-btn i {
  margin-right: 0 !important; /* Override any global icon margin if present */
+}
+
+/* Styles for clip resizing in Create Mode */
+.clip-thumbnail-item.interactive-border {
+  border: 2px solid white;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
+}
+
+.clip-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 10px; /* Width of the draggable area */
+  background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent white */
+  cursor: ew-resize;
+  z-index: 10; /* Ensure handles are above the thumbnail content */
+  border-radius: 3px; /* Rounded corners for the handles */
+  box-shadow: 0 0 5px rgba(0,0,0,0.5); /* Subtle shadow for visibility */
+}
+
+.clip-resize-handle.start {
+  left: -5px; /* Position half of its width outside to the left */
+}
+
+.clip-resize-handle.end {
+  right: -5px; /* Position half of its width outside to the right */
 }

@@ -612,6 +612,8 @@ export const createCompositeVideo = async ({
   try {
     const clipData = clips.map(clip => ({
       task_id: clip.task_id,
+      start_offset_seconds: clip.start_offset_seconds,
+      duration_seconds: clip.duration_seconds,
     }));
 
     const payload = {

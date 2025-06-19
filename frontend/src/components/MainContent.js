@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd'; // Re-added
 import {
   STATUS_PROCESSING,
   STATUS_INITIALIZING,
@@ -40,7 +40,8 @@ function MainContent({
   onRemoveClipFromTrack,
   pixelsPerSecond,
   BACKEND_URL, // For constructing src URLs
-  onDragEnd, // New prop for handling drag and drop
+  onDragEnd, // Re-added: New prop for handling drag and drop
+  onUpdateClip, // New prop for updating clip start/duration
   // Music Props for the track
   onMusicFileUpload,
   onGenerateMusicClick,
@@ -58,6 +59,106 @@ function MainContent({
   const musicFileInputRef = useRef(null);
   const [uploadedMusicSrc, setUploadedMusicSrc] = useState(null);
   const [isHoveringVideo, setIsHoveringVideo] = useState(false); // Added for video hover effect
+  const [hoveredClipId, setHoveredClipId] = useState(null); // For general clip hover (border for resize)
+  const [hoveredForDragHandleClipId, setHoveredForDragHandleClipId] = useState(null); // For move icon visibility
+  const [mouseOverEdgeInfo, setMouseOverEdgeInfo] = useState(null); // { clipId: string, side: 'start' | 'end' } | null
+  const [draggingState, setDraggingState] = useState(null); // { clipId, handleType: 'start' | 'end', initialMouseX, initialStartOffset, initialDuration, originalDuration }
+  const [videoPlayerSrcWithFragment, setVideoPlayerSrcWithFragment] = useState(null); // For create mode player
+
+  const MIN_CLIP_DURATION_SECONDS = 0.5; // Minimum duration for a clip
+  const EDGE_HOTZONE_WIDTH = 15; // Pixels for edge hover detection
+
+  // Handle Mouse Down on Resize Handles
+  const handleMouseDownOnClipResize = (e, clip, handleType) => {
+    // Stop event propagation forcefully to prevent R-B-DND from initiating a drag
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.nativeEvent && typeof e.nativeEvent.stopImmediatePropagation === 'function') {
+      e.nativeEvent.stopImmediatePropagation();
+    }
+
+    document.body.style.cursor = 'ew-resize'; // Set global cursor
+
+    setDraggingState({
+      clipId: clip.trackInstanceId,
+      handleType,
+      initialMouseX: e.clientX,
+      initialStartOffset: clip.start_offset_seconds || 0,
+      initialDuration: clip.duration_seconds,
+      originalDuration: clip.original_duration_seconds,
+    });
+  };
+
+  // Handle Mouse Move for Resizing
+  const handleMouseMoveForClipResize = useCallback((e) => {
+    if (!draggingState) return;
+
+    const deltaX = e.clientX - draggingState.initialMouseX;
+    let newStartOffset = draggingState.initialStartOffset;
+    let newDuration = draggingState.initialDuration;
+
+    const deltaTime = deltaX / pixelsPerSecond;
+
+    if (draggingState.handleType === 'start') {
+      const potentialNewStartOffset = draggingState.initialStartOffset + deltaTime;
+      const potentialNewDuration = draggingState.initialDuration - deltaTime;
+
+      if (potentialNewDuration < MIN_CLIP_DURATION_SECONDS) {
+        newStartOffset = draggingState.initialStartOffset + (draggingState.initialDuration - MIN_CLIP_DURATION_SECONDS);
+        newDuration = MIN_CLIP_DURATION_SECONDS;
+      } else if (potentialNewStartOffset < 0) {
+        newStartOffset = 0;
+        newDuration = draggingState.initialDuration + draggingState.initialStartOffset;
+      } else {
+        newStartOffset = potentialNewStartOffset;
+        newDuration = potentialNewDuration;
+      }
+    } else { // handleType === 'end'
+      const potentialNewDuration = draggingState.initialDuration + deltaTime;
+
+      if (potentialNewDuration < MIN_CLIP_DURATION_SECONDS) {
+        newDuration = MIN_CLIP_DURATION_SECONDS;
+      } else if ((draggingState.initialStartOffset + potentialNewDuration) > draggingState.originalDuration) {
+        newDuration = draggingState.originalDuration - draggingState.initialStartOffset;
+      } else {
+        newDuration = potentialNewDuration;
+      }
+    }
+    
+    // Clamp duration to original bounds considering start_offset
+    const maxPossibleDuration = draggingState.originalDuration - newStartOffset;
+    newDuration = Math.min(newDuration, maxPossibleDuration);
+    newDuration = Math.max(MIN_CLIP_DURATION_SECONDS, newDuration); // Ensure min duration again after clamping
+
+    // Clamp start_offset
+    newStartOffset = Math.max(0, newStartOffset);
+    newStartOffset = Math.min(newStartOffset, draggingState.originalDuration - MIN_CLIP_DURATION_SECONDS);
+
+
+    if (onUpdateClip) {
+      onUpdateClip(draggingState.clipId, parseFloat(newStartOffset.toFixed(3)), parseFloat(newDuration.toFixed(3)));
+    }
+  }, [draggingState, pixelsPerSecond, onUpdateClip, MIN_CLIP_DURATION_SECONDS]);
+
+  // Handle Mouse Up for Resizing
+  const handleMouseUpForClipResize = useCallback(() => {
+    if (!draggingState) return;
+    document.body.style.cursor = ''; // Reset global cursor
+    setDraggingState(null);
+  }, [draggingState]);
+
+  useEffect(() => {
+    if (draggingState) {
+      document.addEventListener('mousemove', handleMouseMoveForClipResize);
+      document.addEventListener('mouseup', handleMouseUpForClipResize);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMoveForClipResize);
+        document.removeEventListener('mouseup', handleMouseUpForClipResize);
+        document.body.style.cursor = ''; // Ensure cursor is reset if component unmounts during drag
+      };
+    }
+  }, [draggingState, handleMouseMoveForClipResize, handleMouseUpForClipResize]);
+
 
   useEffect(() => {
     if (selectedMusicFile) {
@@ -74,6 +175,74 @@ function MainContent({
       setUploadedMusicSrc(null);
     }
   }, [selectedMusicFile]);
+
+  // Effect to update video player src with media fragments for trimmed playback
+  useEffect(() => {
+    if (activeView === 'create' && activeCreateModeVideoSrc && selectedClipInTrack && createModeClips.length > 0) {
+      const selectedClip = createModeClips.find(clip => clip.trackInstanceId === selectedClipInTrack);
+      if (selectedClip) {
+        const startTime = parseFloat(selectedClip.start_offset_seconds) || 0;
+        const duration = parseFloat(selectedClip.duration_seconds);
+        if (!isNaN(duration) && duration > 0) {
+          const endTime = startTime + duration;
+          setVideoPlayerSrcWithFragment(`${activeCreateModeVideoSrc}#t=${startTime.toFixed(3)},${endTime.toFixed(3)}`);
+        } else {
+          // Fallback if duration is invalid, play full or from start_offset without end
+          setVideoPlayerSrcWithFragment(`${activeCreateModeVideoSrc}#t=${startTime.toFixed(3)}`);
+        }
+      } else {
+        setVideoPlayerSrcWithFragment(activeCreateModeVideoSrc); // Fallback if clip not found
+      }
+    } else if (activeView === 'create' && activeCreateModeVideoSrc) {
+      setVideoPlayerSrcWithFragment(activeCreateModeVideoSrc); // No specific clip selected, play full
+    } else {
+      setVideoPlayerSrcWithFragment(null); // No video src
+    }
+  }, [activeView, activeCreateModeVideoSrc, selectedClipInTrack, createModeClips]);
+
+  // Effect for custom looping based on media fragments
+  useEffect(() => {
+    const videoElement = createModeVideoRef.current;
+    if (!videoElement || !videoPlayerSrcWithFragment || activeView !== 'create') {
+      return; // Exit if no video, no fragment src, or not in create view
+    }
+
+    const fragmentString = videoPlayerSrcWithFragment.split('#t=')[1];
+    if (!fragmentString) return; // Exit if no fragment part
+
+    const times = fragmentString.split(',');
+    const startTime = parseFloat(times[0]);
+    const endTime = times[1] ? parseFloat(times[1]) : videoElement.duration; // If no end time, loop to end of video
+
+    if (isNaN(startTime) || isNaN(endTime) || startTime >= endTime) {
+      return; // Invalid times
+    }
+
+    const handleTimeUpdate = () => {
+      if (videoElement.currentTime >= endTime - 0.1) { // Using a small buffer
+        videoElement.currentTime = startTime;
+        videoElement.play().catch(e => console.warn("Custom loop play failed:", e));
+      }
+    };
+
+    videoElement.addEventListener('timeupdate', handleTimeUpdate);
+
+    // When the source changes, ensure the video starts at the correct startTime if autoPlay is on
+    // and the fragment specifies a start time.
+    const handleLoadedData = () => {
+        if (videoElement.autoplay && startTime > 0 && videoElement.currentTime < startTime) {
+            videoElement.currentTime = startTime;
+        }
+    };
+    videoElement.addEventListener('loadeddata', handleLoadedData);
+
+
+    return () => {
+      videoElement.removeEventListener('timeupdate', handleTimeUpdate);
+      videoElement.removeEventListener('loadeddata', handleLoadedData);
+    };
+  }, [videoPlayerSrcWithFragment, createModeVideoRef, activeView]);
+
 
   return (
     <main className={`main-content-area flex-grow-1 p-4 d-flex flex-column ${theme === 'dark' ? 'bg-dark text-light' : ''}`}>
@@ -220,7 +389,15 @@ function MainContent({
           <div className="card video-display-card">
             <div className="card-body d-flex justify-content-center align-items-center" style={{ overflow: 'hidden', height: `${videoHeight}px` }}>
               {activeCreateModeVideoSrc ? (
-                <video key={activeCreateModeVideoSrc} ref={createModeVideoRef} controls autoPlay loop src={activeCreateModeVideoSrc}  style={{ maxHeight: '140%', maxWidth: '140%', minWidth:'140%', minHeight:'140%', objectFit: 'contain', backgroundColor: theme === 'dark' ? '#000000' : '#f8f9fa' }}>
+                <video
+                  key={activeCreateModeVideoSrc} // Key is the base URL
+                  ref={createModeVideoRef}
+                  controls
+                  autoPlay
+                  // loop // Removed: Implementing custom loop for fragments
+                  src={videoPlayerSrcWithFragment || activeCreateModeVideoSrc} // Use fragment if available, else base
+                  style={{ maxHeight: '140%', maxWidth: '140%', minWidth:'140%', minHeight:'140%', objectFit: 'contain', backgroundColor: theme === 'dark' ? '#000000' : '#f8f9fa' }}
+                >
                   {t('videoTagNotSupported')}
                 </video>
               ) : (
@@ -299,51 +476,184 @@ function MainContent({
                 </div>
               </div>
               <DragDropContext onDragEnd={onDragEnd}>
-                <Droppable droppableId="clips" direction="horizontal" isDropDisabled={isCreatingVideo} isCombineEnabled={false}>
+                <Droppable droppableId="clips" direction="horizontal" isDropDisabled={isCreatingVideo || !!draggingState} isCombineEnabled={false}>
                   {(provided) => (
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
                       className="clips-scroll-container d-flex align-items-center"
-                      style={{ paddingLeft: '10px', minHeight: '100px' /* New smaller padding */ }}
+                      style={{ paddingLeft: '10px', minHeight: '100px' }}
                     >
-                      {/* Film Icon Removed from here */}
                       {createModeClips.length === 0 && <p className={`m-0 ${theme === 'dark' ? 'text-light' : 'text-muted'}`}>{t('createClipTrackPlaceholder')}</p>}
-                      {createModeClips.map((clip, index) => (
-                        <Draggable key={clip.trackInstanceId} draggableId={clip.trackInstanceId} index={index}>
-                          {(providedDraggable) => (
-                            <div
-                              ref={providedDraggable.innerRef}
-                              {...providedDraggable.draggableProps}
-                              {...providedDraggable.dragHandleProps}
-                              className={`clip-thumbnail-item ${selectedClipInTrack === clip.trackInstanceId ? 'active' : ''}`}
-                              style={{
-                                ...providedDraggable.draggableProps.style,
-                                width: `${(parseInt(clip.duration_seconds, 10) || 5) * pixelsPerSecond}px`,
-                              }}
-                              onClick={() => onClipClick(clip)}
-                            >
-                              <button
-                                className="clip-delete-btn"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onRemoveClipFromTrack(clip.trackInstanceId);
+                      {createModeClips.map((clip, index) => {
+                        const isResizingThisClip = draggingState && draggingState.clipId === clip.trackInstanceId;
+                        const showDragHandle = hoveredForDragHandleClipId === clip.trackInstanceId && !draggingState && !isCreatingVideo;
+
+                        return (
+                          <Draggable
+                            key={clip.trackInstanceId}
+                            draggableId={clip.trackInstanceId}
+                            index={index}
+                            isDragDisabled={isCreatingVideo || !!draggingState} // Disable dragging if resizing or creating video
+                          >
+                            {(providedDraggable, snapshot) => {
+                              const startTime = parseFloat(clip.start_offset_seconds || 0).toFixed(2);
+                              const duration = parseFloat(clip.duration_seconds).toFixed(2);
+                              const endTime = (parseFloat(startTime) + parseFloat(duration)).toFixed(2);
+                              const originalDuration = parseFloat(clip.original_duration_seconds).toFixed(2);
+                              const tooltipText = `Start: ${startTime}s\nEnd: ${endTime}s\nDuration: ${duration}s\nOriginal: ${originalDuration}s`;
+
+                              return (
+                              <div
+                                ref={providedDraggable.innerRef}
+                                {...providedDraggable.draggableProps} // Applied to the main container for positioning by R-B-DND
+                                // dragHandleProps will be applied to the custom handle, not here
+                                className={`clip-thumbnail-item ${selectedClipInTrack === clip.trackInstanceId ? 'active' : ''} ${!snapshot.isDragging && (hoveredClipId === clip.trackInstanceId || isResizingThisClip) ? 'interactive-border' : ''}`}
+                                title={tooltipText}
+                                style={
+                                  snapshot.isDragging
+                                    ? providedDraggable.draggableProps.style
+                                    : {
+                                        ...providedDraggable.draggableProps.style,
+                                        width: `${(parseFloat(clip.duration_seconds) || 5) * pixelsPerSecond}px`,
+                                        position: 'relative',
+                                      }
+                                }
+                                onClick={() => {
+                                  if (!draggingState && !snapshot.isDragging) {
+                                    onClipClick(clip);
+                                  }
                                 }}
-                                title={t('removeClipFromTrackTitle')}
+                                onMouseEnter={(e) => {
+                                  if (!draggingState && !snapshot.isDragging) {
+                                    setHoveredClipId(clip.trackInstanceId); // For resize handles and border
+                                    setHoveredForDragHandleClipId(clip.trackInstanceId); // For move icon
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const x = e.clientX - rect.left;
+                                    if (x < EDGE_HOTZONE_WIDTH) {
+                                      setMouseOverEdgeInfo({ clipId: clip.trackInstanceId, side: 'start' });
+                                    } else if (rect.width - x < EDGE_HOTZONE_WIDTH) {
+                                      setMouseOverEdgeInfo({ clipId: clip.trackInstanceId, side: 'end' });
+                                    } else {
+                                      setMouseOverEdgeInfo(null);
+                                    }
+                                  }
+                                }}
+                                onMouseMove={(e) => {
+                                  // Keep existing mouse move for resize handles
+                                  if (!draggingState && !snapshot.isDragging && hoveredClipId === clip.trackInstanceId) {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const x = e.clientX - rect.left;
+                                    if (x < EDGE_HOTZONE_WIDTH) {
+                                      if (mouseOverEdgeInfo?.side !== 'start' || mouseOverEdgeInfo?.clipId !== clip.trackInstanceId) {
+                                        setMouseOverEdgeInfo({ clipId: clip.trackInstanceId, side: 'start' });
+                                      }
+                                    } else if (rect.width - x < EDGE_HOTZONE_WIDTH) {
+                                      if (mouseOverEdgeInfo?.side !== 'end' || mouseOverEdgeInfo?.clipId !== clip.trackInstanceId) {
+                                        setMouseOverEdgeInfo({ clipId: clip.trackInstanceId, side: 'end' });
+                                      }
+                                    } else {
+                                      if (mouseOverEdgeInfo !== null) {
+                                        setMouseOverEdgeInfo(null);
+                                      }
+                                    }
+                                  }
+                                }}
+                                onMouseLeave={() => {
+                                  if (!draggingState && !snapshot.isDragging) {
+                                    setHoveredClipId(null);
+                                    setHoveredForDragHandleClipId(null);
+                                    setMouseOverEdgeInfo(null);
+                                  }
+                                }}
                               >
-                                <i className="bi bi-x-lg"></i>
-                              </button>
-                              {clip.local_thumbnail_path ? (
-                                <img src={`${BACKEND_URL}${clip.local_thumbnail_path}`} alt={`Clip ${clip.task_id}`} />
-                              ) : (
-                                <div className="clip-thumbnail-placeholder">
+                                {/* Custom Drag Handle */}
+                                {showDragHandle && !snapshot.isDragging && (
+                                  <div
+                                    {...providedDraggable.dragHandleProps} // Apply drag handle props here
+                                    style={{
+                                      position: 'absolute',
+                                      top: '50%',
+                                      left: '50%',
+                                      transform: 'translate(-50%, -50%)',
+                                      width: '30px',
+                                      height: '30px',
+                                      backgroundColor: 'rgba(0,0,0,0.6)',
+                                      borderRadius: '50%',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'grab',
+                                      zIndex: 20, // Above other elements like resize handles
+                                      color: 'white',
+                                    }}
+                                    onClick={(e) => e.stopPropagation()} // Prevent clip click when clicking handle
+                                    onMouseDown={(e) => e.stopPropagation()} // Prevent resize logic if handle is on edge
+                                  >
+                                    <i className="bi bi-arrows-move" style={{ fontSize: '1rem' }}></i>
+                                  </div>
+                                )}
+
+                                {/* Resize Handles */}
+                                {!snapshot.isDragging && !isCreatingVideo && (
+                                  <>
+                                    {((mouseOverEdgeInfo?.clipId === clip.trackInstanceId && mouseOverEdgeInfo?.side === 'start') || (draggingState?.clipId === clip.trackInstanceId && draggingState?.handleType === 'start')) && (
+                                      <div
+                                        className="clip-resize-handle start"
+                                        style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', height: '20px', width: '10px', background: 'white', cursor: 'ew-resize', zIndex: 10, borderRadius: '3px', left: '-5px', boxShadow: '0 0 5px rgba(0,0,0,0.5)' }}
+                                        onMouseDownCapture={(e) => handleMouseDownOnClipResize(e, clip, 'start')}
+                                      />
+                                    )}
+                                    {((mouseOverEdgeInfo?.clipId === clip.trackInstanceId && mouseOverEdgeInfo?.side === 'end') || (draggingState?.clipId === clip.trackInstanceId && draggingState?.handleType === 'end')) && (
+                                      <div
+                                        className="clip-resize-handle end"
+                                        style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', height: '20px', width: '10px', background: 'white', cursor: 'ew-resize', zIndex: 10, borderRadius: '3px', right: '-5px', boxShadow: '0 0 5px rgba(0,0,0,0.5)' }}
+                                        onMouseDownCapture={(e) => handleMouseDownOnClipResize(e, clip, 'end')}
+                                      />
+                                    )}
+                                  </>
+                                )}
+                                <button
+                                  className="clip-delete-btn"
+                                  disabled={isCreatingVideo}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRemoveClipFromTrack(clip.trackInstanceId);
+                                  }}
+                                  title={t('removeClipFromTrackTitle')}
+                                >
+                                  <i className="bi bi-x-lg"></i>
+                                </button>
+                                {clip.local_thumbnail_path ? (
+                                  <img src={`${BACKEND_URL}${clip.local_thumbnail_path}`} alt={`Clip ${clip.task_id}`} />
+                                ) : (
+                                  <div className="clip-thumbnail-placeholder">
                                   <i className="bi bi-film"></i>
                                 </div>
                               )}
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
+                              {/* Display duration when resizing this clip */}
+                              {isResizingThisClip && (
+                                <div style={{
+                                  position: 'absolute',
+                                  bottom: '5px',
+                                  left: '50%',
+                                  transform: 'translateX(-50%)',
+                                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                  color: 'white',
+                                  padding: '2px 5px',
+                                  borderRadius: '3px',
+                                  fontSize: '0.8em',
+                                  zIndex: 15, // Above image, potentially below handles if they overlap
+                                }}>
+                                  {`${parseFloat(clip.duration_seconds).toFixed(2)}s`}
+                                </div>
+                              )}
+                              </div>
+                            );
+                           }}
+                          </Draggable>
+                        );
+                      })}
                       {provided.placeholder}
                     </div>
                   )}
