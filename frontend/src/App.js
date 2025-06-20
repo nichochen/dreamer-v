@@ -79,6 +79,8 @@ function App() {
   const [uploadedMusicBackendUrl, setUploadedMusicBackendUrl] = useState(null); // New state for backend URL of uploaded music
   // const [musicCompletedUriPollRetries, setMusicCompletedUriPollRetries] = useState(0); // Removed
 
+  const [isPlayingTrack, setIsPlayingTrack] = useState(false); // Lifted from MainContent
+
   const [isGeneratingFirstFrame, setIsGeneratingFirstFrame] = useState(false); // New state for first frame generation
   const [generatedFirstFrameImageUrl, setGeneratedFirstFrameImageUrl] = useState(''); // To store the URL from backend
   const [firstFrameImageGenerationError, setFirstFrameImageGenerationError] = useState(''); // Error specific to first frame
@@ -202,6 +204,18 @@ function App() {
   const lastFileInputRef = useRef(null); // New ref for last image file input
   const userDropdownRef = useRef(null); // Ref for user dropdown
 
+  // Function to ensure track playback is stopped
+  const ensureTrackPlaybackStopped = useCallback(() => {
+    if (isPlayingTrack) {
+      if (createModeVideoRef.current) {
+        createModeVideoRef.current.pause();
+      }
+      setIsPlayingTrack(false);
+      console.log('[App.js] ensureTrackPlaybackStopped: Playback stopped.');
+      // MainContent's useEffect watching isPlayingTrack will handle music and clip index reset.
+    }
+  }, [isPlayingTrack, createModeVideoRef, setIsPlayingTrack]); // createModeVideoRef is stable, setIsPlayingTrack is stable
+
   const [activeImageTab, setActiveImageTab] = useState('first'); // 'first' or 'last'
 
   // Wrapped API calls for useCallback
@@ -280,6 +294,15 @@ function App() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, duration, selectedLastImage, ratio, activeImageTab, setCameraControl, setDuration, setRatio, setActiveImageTab]); // Added setters to dependency array as per exhaustive-deps, clearLastImagePreview is defined in scope
+
+  // Effect to stop track playback if view changes from 'create' while playing
+  const prevActiveViewRef = useRef();
+  useEffect(() => {
+    if (prevActiveViewRef.current === 'create' && activeView !== 'create') {
+      ensureTrackPlaybackStopped(); // Call the centralized stop function
+    }
+    prevActiveViewRef.current = activeView;
+  }, [activeView, ensureTrackPlaybackStopped]); // ensureTrackPlaybackStopped depends on isPlayingTrack
 
   // Removed handleMouseDownResize as it's in handlers.js
 
@@ -587,13 +610,16 @@ function App() {
     pollingIntervalId, setPollingIntervalId, setTaskId, fetchHistoryTasks: memoizedFetchHistoryTasks, t,
   });
 
-  const doHandleHistoryItemClick = (task) => Handlers.handleHistoryItemClick({
-    task, activeView, pollingIntervalId, setPollingIntervalId, setCompletedUriPollRetries,
-    setCreateModeClips, setActiveCreateModeVideoSrc, setSelectedClipInTrack,
+  const doHandleHistoryItemClick = (task) => {
+    ensureTrackPlaybackStopped(); // Stop playback before handling history item click
+    Handlers.handleHistoryItemClick({
+      task, activeView, pollingIntervalId, setPollingIntervalId, setCompletedUriPollRetries,
+      setCreateModeClips, setActiveCreateModeVideoSrc, setSelectedClipInTrack,
     setPrompt, setModel, setRatio, setCameraControl, setDuration, setGcsOutputBucket,
     setTaskId, setVideoGcsUri, setTaskStatus, setErrorMessage, setIsLoading,
     setSelectedImage, setImagePreview, setSelectedLastImage, setLastImagePreview, t,
   });
+}; // Added missing closing brace
 
   const doHandleDeleteTask = (idToDelete) => Api.handleDeleteTask({
     idToDelete, taskId, activeView, createModeClips, selectedClipInTrack, setIsLoading,
@@ -603,21 +629,24 @@ function App() {
     setActiveCreateModeVideoSrc, setSelectedClipInTrack, fetchHistoryTasks: memoizedFetchHistoryTasks, t,
   });
   
-  const doHandleCreateVideoClick = () => Handlers.handleCreateVideoClick({
-     createModeClips,
-     uploadedMusicBackendUrl, // Added
-     generatedMusicUrl,     // Added
-     setErrorMessage, 
-     setIsCreatingVideo, 
-     t,
-     setTaskId, 
-     setTaskStatus, 
-     fetchHistoryTasks: memoizedFetchHistoryTasks,
-     setActiveView, 
-     setCreateModeClips, 
-     setSelectedClipInTrack, 
-     setActiveCreateModeVideoSrc, 
-  });
+  const doHandleCreateVideoClick = () => {
+    ensureTrackPlaybackStopped(); // Stop playback before creating video
+    Handlers.handleCreateVideoClick({
+      createModeClips,
+      uploadedMusicBackendUrl, // Added
+      generatedMusicUrl,     // Added
+      setErrorMessage, 
+      setIsCreatingVideo, 
+      t,
+      setTaskId, 
+      setTaskStatus, 
+      fetchHistoryTasks: memoizedFetchHistoryTasks,
+      setActiveView, 
+      setCreateModeClips, 
+      setSelectedClipInTrack, 
+      setActiveCreateModeVideoSrc, 
+    });
+  };
 
   const handleGenerateMusicFeatureComingSoon = () => {
     alert(t('musicGenerationComingSoonMessage', 'Music generation feature is coming soon!'));
@@ -819,6 +848,8 @@ function App() {
               musicErrorMessage={musicErrorMessage}
               isCreatingVideo={isCreatingVideo} // Pass this to disable controls
               onClearMusicSelection={handleClearMusicSelection} // Pass the new handler
+              isPlayingTrack={isPlayingTrack} // Pass lifted state
+              setIsPlayingTrack={setIsPlayingTrack} // Pass lifted setter
             />
             <HistorySidebar
               theme={theme}

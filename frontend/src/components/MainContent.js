@@ -55,6 +55,9 @@ function MainContent({
   uploadedMusicBackendUrl, // New prop
   isCreatingVideo, // To disable controls
   onClearMusicSelection, // New prop for clearing selected music
+  // Lifted state for track playback, passed from App.js
+  isPlayingTrack, 
+  setIsPlayingTrack,
 }) {
   const musicFileInputRef = useRef(null);
   const [uploadedMusicSrc, setUploadedMusicSrc] = useState(null);
@@ -65,13 +68,44 @@ function MainContent({
   const [draggingState, setDraggingState] = useState(null); // { clipId, handleType: 'start' | 'end', initialMouseX, initialStartOffset, initialDuration, originalDuration }
   const [videoPlayerSrcWithFragment, setVideoPlayerSrcWithFragment] = useState(null); // For create mode player
   // const [formattedClipInfoString, setFormattedClipInfoString] = useState(''); // State for formatted clip info - REMOVED as per new play/pause logic
-  const [isPlayingTrack, setIsPlayingTrack] = useState(false); // State for track playback mode
+  // const [isPlayingTrack, setIsPlayingTrack] = useState(false); // State for track playback mode - LIFTED TO APP.JS
   const [currentTrackPlaybackClipIndex, setCurrentTrackPlaybackClipIndex] = useState(0); // Index for sequential playback
   const [trackPlaylist, setTrackPlaylist] = useState([]); // Holds the structured playlist for track playback
   const [timelineCurrentTime, setTimelineCurrentTime] = useState(0); // For general video time, and playhead when NOT in track mode
   const [smoothTrackPlayheadTime, setSmoothTrackPlayheadTime] = useState(0); // Timer-driven for track playback playhead
   const trackPlaybackStartTimestampRef = useRef(0); // Stores performance.now() when track play starts
   const musicAudioRef = useRef(null); // Ref for the music audio element
+
+  // Function to stop track playback (uses setIsPlayingTrack prop from App.js)
+  const handleStopTrackPlayback = () => {
+    const videoElement = createModeVideoRef.current;
+    if (videoElement) {
+      videoElement.pause();
+      // Potentially reset currentTime if stopping means "reset to start of current segment"
+      // For now, just pausing and setting state which will reset index.
+    }
+    // Music pause and currentTime reset will be handled by the new useEffect watching isPlayingTrack prop
+    // setCurrentTrackPlaybackClipIndex will also be handled by the new useEffect
+    setIsPlayingTrack(false); // This will trigger the useEffect in MainContent to clean up music and clip index
+    // setSmoothTrackPlayheadTime(0); // Reset visual playhead - consider if this should be part of stop
+  };
+  
+  // Effect to handle local cleanup when isPlayingTrack prop (from App.js) changes to false
+  const prevIsPlayingTrackRef = useRef(isPlayingTrack);
+  useEffect(() => {
+    if (prevIsPlayingTrackRef.current && !isPlayingTrack) {
+      // isPlayingTrack has just become false
+      if (musicAudioRef.current) {
+        musicAudioRef.current.pause();
+        musicAudioRef.current.currentTime = 0; // Reset music to beginning on stop
+        console.log("[MainContent] isPlayingTrack became false, paused music and reset time.");
+      }
+      setCurrentTrackPlaybackClipIndex(0); // Reset to beginning of track conceptually
+      console.log("[MainContent] isPlayingTrack became false, reset currentTrackPlaybackClipIndex.");
+      // setSmoothTrackPlayheadTime(0); // Also reset visual playhead if needed
+    }
+    prevIsPlayingTrackRef.current = isPlayingTrack;
+  }, [isPlayingTrack]); // Depends only on the isPlayingTrack prop
 
   const MIN_CLIP_DURATION_SECONDS = 1.0; // Minimum duration for a clip
   const EDGE_HOTZONE_WIDTH = 15; // Pixels for edge hover detection
@@ -344,12 +378,11 @@ function MainContent({
         setCurrentTrackPlaybackClipIndex(nextClipIndex);
       } else {
         console.log("[Track Playback EVT] End of playlist.");
-        if (musicAudioRef.current) {
-          musicAudioRef.current.pause();
-          musicAudioRef.current.currentTime = 0; 
-        }
-        setIsPlayingTrack(false);
-        setCurrentTrackPlaybackClipIndex(0);
+        // Music pause and reset, and setting isPlayingTrack to false,
+        // will be handled by the useEffect watching isPlayingTrack prop,
+        // or by the handleStopTrackPlayback function if called directly.
+        setIsPlayingTrack(false); // This will trigger the cleanup useEffect
+        // setCurrentTrackPlaybackClipIndex(0); // This is also handled by the cleanup useEffect
       }
     };
 
@@ -366,12 +399,10 @@ function MainContent({
     const handleTrackClipError = (e) => {
       const currentItem = trackPlaylist[currentTrackPlaybackClipIndex];
       console.error("[Track Playback EVT] Error playing track clip:", currentItem || "Unknown item", e);
-      if (musicAudioRef.current) {
-        musicAudioRef.current.pause();
-        musicAudioRef.current.currentTime = 0;
-      }
-      setIsPlayingTrack(false);
-      setCurrentTrackPlaybackClipIndex(0);
+      // Music pause and reset, and setting isPlayingTrack to false,
+      // will be handled by the useEffect watching isPlayingTrack prop.
+      setIsPlayingTrack(false); // This will trigger the cleanup useEffect
+      // setCurrentTrackPlaybackClipIndex(0); // This is also handled by the cleanup useEffect
     };
 
     const handleCanPlayThrough = () => {
@@ -692,12 +723,12 @@ function MainContent({
                 style={{ minWidth: '50px' }} // Ensure space for icon and text
               >
                 <i
-                  className={`bi bi-film ${theme === 'dark' ? 'text-light' : 'text-dark'}`}
+                  className={`bi bi-film ${theme === 'dark' ? 'text-light' : 'text-dark'} ${isPlayingTrack ? 'disabled-look' : ''}`}
                   style={{ fontSize: '1.8rem', opacity: 0.8 }}
                 ></i>
                 {activeView === 'create' && (
                   <div
-                    className={`badge ${theme === 'dark' ? 'bg-light text-dark' : 'bg-secondary text-white'} d-flex align-items-center mb-2`}
+                    className={`badge ${theme === 'dark' ? 'bg-light text-dark' : 'bg-secondary text-white'} d-flex align-items-center mb-2 ${isPlayingTrack ? 'disabled-look' : ''}`}
                     style={{ fontSize: '0.70rem', marginTop: '3px', whiteSpace: 'nowrap', padding: '0.25em 0.4em' }}
                     title={t('totalTrackDurationLabel', `Total duration: ${totalDurationFormatted}`, { duration: totalDurationFormatted })}
                   >
@@ -711,29 +742,45 @@ function MainContent({
                   style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   onClick={() => {
                     const videoElement = createModeVideoRef.current;
-                    if (isPlayingTrack) { 
-                      if (videoElement) videoElement.pause();
-                      if (musicAudioRef.current) {
-                        musicAudioRef.current.pause();
-                      }
-                      setIsPlayingTrack(false);
-                    } else { 
-                      if (trackPlaylist.length > 0) {
-                        trackPlaybackStartTimestampRef.current = performance.now();
-                        setSmoothTrackPlayheadTime(0); // Reset timer-driven playhead
-                        setCurrentTrackPlaybackClipIndex(0); 
-                        setIsPlayingTrack(true);
-                        if (musicAudioRef.current) {
-                          musicAudioRef.current.currentTime = 0;
-                          musicAudioRef.current.play().catch(e => console.warn("Music play failed", e));
+                      if (isPlayingTrack) { 
+                        handleStopTrackPlayback();
+                      } else { 
+                        if (trackPlaylist.length > 0 && videoElement) { // Ensure videoElement exists
+                          trackPlaybackStartTimestampRef.current = performance.now();
+                          setSmoothTrackPlayheadTime(0); // Reset timer-driven playhead
+                          
+                          const firstPlaylistItem = trackPlaylist[0];
+                          const targetSrcForFirstClip = `${firstPlaylistItem.src}#t=${firstPlaylistItem.startTime.toFixed(3)},${firstPlaylistItem.endTime.toFixed(3)}`;
+
+                          // Set state to start track playback from the first clip
+                          setCurrentTrackPlaybackClipIndex(0); 
+                          setIsPlayingTrack(true);
+
+                          // If the videoPlayerSrcWithFragment (which dictates the video key and src) 
+                          // is already what the first clip of the track needs, it means the src/key
+                          // won't change, and 'canplaythrough' might not fire to reset playback.
+                          // In this specific case, we manually set currentTime and play.
+                          if (videoPlayerSrcWithFragment === targetSrcForFirstClip) {
+                            console.log("[Play Track Button] First clip's target src is same as current. Manually setting currentTime and playing.");
+                            videoElement.currentTime = firstPlaylistItem.startTime;
+                            videoElement.play().catch(e => console.warn("Play Track Button: Manual play failed", e));
+                          }
+                          // If videoPlayerSrcWithFragment will change due to the state updates above, 
+                          // the existing useEffect chain involving setVideoPlayerSrcWithFragment 
+                          // -> new key/src -> canplaythrough event -> (handler sets currentTime + calls play) 
+                          // will correctly handle starting playback from the beginning of the first clip's segment.
+
+                          if (musicAudioRef.current) {
+                            musicAudioRef.current.currentTime = 0;
+                            musicAudioRef.current.play().catch(e => console.warn("Music play failed", e));
                         }
                       }
                     }
                   }}
                   disabled={isCreatingVideo || trackPlaylist.length === 0}
-                  title={isPlayingTrack ? t('pauseTrackButtonTitle', 'Pause track') : t('playTrackButtonTitle', 'Play track (locks editing)')}
+                  title={isPlayingTrack ? t('stopTrackButtonTitle', 'Stop track') : t('playTrackButtonTitle', 'Play track (locks editing)')}
                 >
-                  <i className={`bi ${isPlayingTrack ? 'bi-pause-fill' : 'bi-play-fill'}`}></i>
+                  <i className={`bi ${isPlayingTrack ? 'bi-stop-fill' : 'bi-play-fill'}`}></i>
                 </button>
               </div>
               {/* Combined Scrollable Container for Timeline and Clips with Overlay */}
@@ -1099,7 +1146,7 @@ function MainContent({
                                 musicFileInputRef.current.value = ""; // Reset file input
                               }
                             }}
-                            disabled={isCreatingVideo}
+                            disabled={isCreatingVideo || isPlayingTrack}
                             title={t('clearMusicSelectionButtonTitle', 'Clear selected music')}
                             style={{ lineHeight: '1', height: '24px', width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                           >
@@ -1154,7 +1201,7 @@ function MainContent({
                         <button
                           className={`btn btn-sm ${theme === 'dark' ? 'btn-outline-light' : 'btn-outline-secondary'} me-2`}
                           onClick={() => musicFileInputRef.current && musicFileInputRef.current.click()}
-                          disabled={isCreatingVideo || isGeneratingMusic}
+                          disabled={isCreatingVideo || isGeneratingMusic || isPlayingTrack}
                           title={t('uploadMusicFileLabel')}
                         >
                           <i className="bi bi-upload"></i>
@@ -1165,13 +1212,13 @@ function MainContent({
                           id="musicFileUploadMain"
                           accept=".mp3,.wav"
                           onChange={onMusicFileUpload}
-                          disabled={isCreatingVideo || isGeneratingMusic}
+                          disabled={isCreatingVideo || isGeneratingMusic || isPlayingTrack}
                           style={{ opacity: 0, position: 'absolute', width: '1px', height: '1px' }}
                         />
                         <button
                           className={`btn btn-sm ${theme === 'dark' ? 'btn-outline-light' : 'btn-outline-secondary'}`}
                           onClick={onGenerateMusicClick}
-                          disabled={isCreatingVideo || isGeneratingMusic || true} // Always disable for now
+                          disabled={isCreatingVideo || isGeneratingMusic || true || isPlayingTrack} // Always disable for now
                           title={t('generateMusicButton')}
                         >
                           {isGeneratingMusic ? ( // This condition might not be met if button is always disabled
