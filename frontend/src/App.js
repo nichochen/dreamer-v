@@ -570,6 +570,20 @@ function App() {
     }
   }, [historyTasks, taskId, taskStatus, videoGcsUri, errorMessage, pollingIntervalId, activeView, setTaskStatus, setVideoGcsUri, setErrorMessage, setPollingIntervalId, setCompletedUriPollRetries, t]);
 
+  // Effect for task timeout
+  useEffect(() => {
+    const now = new Date().getTime();
+    const fiveMinutes = 5 * 60 * 1000;
+    historyTasks.forEach(task => {
+      if (task.status === STATUS_PROCESSING) {
+        const taskTime = new Date(task.created_at * 1000).getTime();
+        if (now - taskTime > fiveMinutes) {
+          Api.updateTaskStatus(task.task_id, STATUS_FAILED, 'Task timed out after 5 minutes.');
+        }
+      }
+    });
+  }, [historyTasks]);
+
   // Effect for periodic refresh of the entire history if there are ongoing tasks
   useEffect(() => {
     const hasNonFinalTasks = historyTasks.some(task => task.status === STATUS_PENDING || task.status === STATUS_PROCESSING);

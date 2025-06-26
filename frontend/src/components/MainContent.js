@@ -560,7 +560,7 @@ function MainContent({
                 ) : (taskStatus === STATUS_FAILED || taskStatus === STATUS_ERROR) ? (
                   <div className="d-flex flex-column justify-content-center align-items-center w-100 h-100">
                     <img src="/fail.png" alt={t('failedAltText')} style={{ width: '100px', height: '100px', marginBottom: '10px' }} />
-                    <p >{errorMessage || t('errorMessageGeneric')}</p>
+                    <p style={{ maxWidth: '60%', wordWrap: 'break-word' }}>{errorMessage || t('errorMessageGeneric')}</p>
                   </div>
                 ) : taskStatus === STATUS_COMPLETED ? (
                   videoGcsUri ? (
@@ -645,7 +645,7 @@ function MainContent({
                     )}
                   </>
                 )}
-                {errorMessage && taskStatus !== STATUS_COMPLETED && <p className="card-text text-danger mb-2"><strong><i className="bi bi-exclamation-triangle me-2"></i>{t('taskErrorLabel')}</strong> {errorMessage}</p>}
+                {errorMessage && taskStatus !== STATUS_COMPLETED && <p className="card-text text-danger mb-2" style={{ maxWidth: '80%', wordWrap: 'break-word' }}><strong><i className="bi bi-exclamation-triangle me-2"></i>{t('taskErrorLabel')}</strong> {errorMessage}</p>}
                 {(taskStatus === STATUS_PROCESSING || taskStatus === STATUS_COMPLETED || taskStatus === STATUS_FAILED || taskStatus === STATUS_ERROR) && (
                   <div>
                     <button

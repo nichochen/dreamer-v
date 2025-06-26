@@ -700,3 +700,21 @@ export const generateImage = async ({
     throw error;
   }
 };
+
+export const updateTaskStatus = async (taskId, status, errorMessage) => {
+  try {
+    const response = await fetch(`${BACKEND_URL}/task-status/${taskId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status, error_message: errorMessage }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to update task status: ${response.statusText}`);
+    }
+  } catch (error) {
+    console.error(`Error updating task ${taskId} status:`, error);
+  }
+};

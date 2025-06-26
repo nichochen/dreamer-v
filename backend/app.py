@@ -674,11 +674,22 @@ Do only prompt refine not anything else"""
         traceback.print_exc()
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
-@app.route('/api/task-status/<task_id>', methods=['GET'])
+@app.route('/api/task-status/<task_id>', methods=['GET', 'POST'])
 def task_status_route(task_id):
     task = VideoGenerationTask.query.get(task_id)
     if not task:
         return jsonify({"error": "Task not found"}), 404
+
+    if request.method == 'POST':
+        data = request.get_json()
+        if 'status' in data:
+            task.status = data['status']
+        if 'error_message' in data:
+            task.error_message = data['error_message']
+        task.updated_at = time.time()
+        db.session.commit()
+        return jsonify({"message": "Task status updated successfully"}), 200
+
     return jsonify(task.to_dict()), 200
 
 @app.route('/api/tasks', methods=['GET'])
