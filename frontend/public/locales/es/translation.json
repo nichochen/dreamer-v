@@ -135,5 +135,6 @@
   "musicGenerationComingSoonMessage": "¡La función de generación de música llegará pronto!",
   "videoEditingUnderDevelopmentNoticeTitle": "Función de Edición de Video - En Desarrollo",
   "videoEditingUnderDevelopmentNoticeBody": "El modo de edición de video (Tejer) está actualmente en desarrollo activo. Puedes experimentar problemas de rendimiento o encontrar errores.",
-  "videoEditingUnderDevelopmentNoticeSuggestion": "Esta función consume mucha CPU. Si la encuentras muy lenta, por favor considera aumentar los recursos de tu servidor."
+  "videoEditingUnderDevelopmentNoticeSuggestion": "Esta función consume mucha CPU. Si la encuentras muy lenta, por favor considera aumentar los recursos de tu servidor.",
+  "page": "Página"
 }

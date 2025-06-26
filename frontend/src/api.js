@@ -181,14 +181,15 @@ export const pollMusicTaskStatus = async ({
 };
 
 
-export const fetchHistoryTasks = async (setHistoryTasks, t) => {
+export const getTasks = async (page = 1, setHistoryTasks, setTotalPages, t) => {
   try {
-    const response = await fetch(`${BACKEND_URL}/tasks`);
+    const response = await fetch(`${BACKEND_URL}/tasks?page=${page}`);
     if (!response.ok) {
       throw new Error(t('errorFetchHistory', { statusText: response.statusText }));
     }
     const data = await response.json();
-    setHistoryTasks(data);
+    setHistoryTasks(data.tasks);
+    setTotalPages(data.total_pages);
   } catch (error) {
     console.error('Error fetching history tasks:', error);
     // Optionally set an error message for history fetching
@@ -225,7 +226,7 @@ export const handleGenerateClick = async ({
   pollingIntervalId,
   setPollingIntervalId,
   setTaskId,
-  fetchHistoryTasks,
+  getTasks,
   t,
 }) => {
   if (!prompt.trim()) {
@@ -269,7 +270,7 @@ export const handleGenerateClick = async ({
     }
     setTaskId(data.task_id);
     setTaskStatus(STATUS_PENDING);
-    fetchHistoryTasks();
+    getTasks();
   } catch (error) {
     console.error('Error starting video generation:', error);
     setErrorMessage(error.message || t('errorStartGenerationGeneric'));
@@ -284,7 +285,7 @@ export const pollTaskStatus = async ({
   taskStatus,
   pollingIntervalId,
   completedUriPollRetries,
-  fetchHistoryTasks,
+  getTasks,
   setTaskStatus,
   setVideoGcsUri,
   setErrorMessage,
@@ -310,7 +311,7 @@ export const pollTaskStatus = async ({
         if (pollingIntervalId) clearInterval(pollingIntervalId);
         setPollingIntervalId(null);
         setCompletedUriPollRetries(0);
-        fetchHistoryTasks();
+        getTasks();
         return;
       }
       throw new Error(data.error || t('errorFetchTaskStatus', { statusText: response.statusText }));
@@ -321,7 +322,7 @@ export const pollTaskStatus = async ({
     let finalTaskStatusToSet = taskStatus;
 
     if (newStatusFromBackend !== taskStatus || [STATUS_PROCESSING, STATUS_COMPLETED, STATUS_FAILED].includes(newStatusFromBackend)) {
-      fetchHistoryTasks();
+      getTasks();
     }
 
     if (newStatusFromBackend === STATUS_COMPLETED) {
@@ -384,7 +385,7 @@ export const pollTaskStatus = async ({
     if (taskStatus !== STATUS_COMPLETED && taskStatus !== STATUS_FAILED && taskStatus !== STATUS_ERROR) {
       setTaskStatus(STATUS_ERROR);
     }
-    fetchHistoryTasks();
+    getTasks();
   }
 };
 
@@ -412,7 +413,7 @@ export const handleDeleteTask = async ({
   setCreateModeClips,
   setActiveCreateModeVideoSrc,
   setSelectedClipInTrack,
-  fetchHistoryTasks,
+  getTasks,
   t,
 }) => {
   if (!idToDelete) return;
@@ -454,7 +455,7 @@ export const handleDeleteTask = async ({
       setSelectedClipInTrack(null);
     }
 
-    fetchHistoryTasks();
+    getTasks();
     alert(t('taskDeletedSuccessMessage'));
   } catch (error) {
     console.error('Error deleting task:', error);
@@ -528,7 +529,7 @@ export const handleExtendVideoClick = async ({
   setTaskId,
   setActiveView,
   setTaskStatus,
-  fetchHistoryTasks,
+  getTasks,
   t,
 }) => {
   if (!taskIdToExtend || isExtending) {
@@ -556,7 +557,7 @@ export const handleExtendVideoClick = async ({
     setTaskId(data.task_id);
     setActiveView('dream');
     setTaskStatus(STATUS_PENDING);
-    fetchHistoryTasks();
+    getTasks();
   } catch (error) {
     console.error('Error starting video extension:', error);
     setErrorMessage(error.message || t('errorExtendVideoGeneric'));
@@ -605,7 +606,7 @@ export const createCompositeVideo = async ({
   musicFilePath, // New parameter for the music file path
   setTaskId,
   setTaskStatus,
-  fetchHistoryTasks,
+  getTasks,
   setErrorMessage,
   t,
 }) => {
@@ -641,7 +642,7 @@ export const createCompositeVideo = async ({
 
     setTaskId(data.task_id); // The backend should return the new task_id for the composite video
     setTaskStatus(STATUS_PENDING); // Set status to pending for the new task
-    fetchHistoryTasks(); // Refresh history to show the new task
+    getTasks(); // Refresh history to show the new task
     setErrorMessage(''); // Clear any previous errors
     // No need to alert here, the UI will update based on task status polling
 

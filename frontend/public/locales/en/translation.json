@@ -136,5 +136,6 @@
   "musicGenerationComingSoonMessage": "Music generation feature is coming soon!",
   "videoEditingUnderDevelopmentNoticeTitle": "Video Editing Feature - Under Development",
   "videoEditingUnderDevelopmentNoticeBody": "The video editing (Weave) mode is currently under active development. You may experience performance issues or encounter bugs.",
-  "videoEditingUnderDevelopmentNoticeSuggestion": "This feature is CPU intensive. If you find it very slow, please consider upscaling your server resources."
+  "videoEditingUnderDevelopmentNoticeSuggestion": "This feature is CPU intensive. If you find it very slow, please consider upscaling your server resources.",
+  "page": "Page"
 }

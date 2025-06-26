@@ -221,7 +221,7 @@ function App() {
   // Wrapped API calls for useCallback
   const memoizedFetchHistoryTasks = useCallback(() => {
     if (isBackendReady) {
-      Api.fetchHistoryTasks(setHistoryTasks, t);
+      Api.getTasks(1, setHistoryTasks, () => {}, t);
     }
   }, [isBackendReady, setHistoryTasks, t]);
 
@@ -426,7 +426,7 @@ function App() {
   const memoizedPollTaskStatus = useCallback(() => {
     Api.pollTaskStatus({
       taskId, taskStatus, pollingIntervalId, completedUriPollRetries,
-      fetchHistoryTasks: memoizedFetchHistoryTasks, // Use memoized version
+      getTasks: memoizedFetchHistoryTasks, // Use memoized version
       setTaskStatus, setVideoGcsUri, setErrorMessage, setPollingIntervalId,
       setCompletedUriPollRetries, setPrompt, setModel, setRatio,
       setCameraControl, setDuration, setGcsOutputBucket, t,
@@ -621,7 +621,7 @@ function App() {
   const doHandleGenerateClick = () => Api.handleGenerateClick({
     prompt, model, ratio, cameraControl, duration, gcsOutputBucket, selectedImage, selectedLastImage,
     setIsLoading, setErrorMessage, setVideoGcsUri, setTaskStatus, setCompletedUriPollRetries,
-    pollingIntervalId, setPollingIntervalId, setTaskId, fetchHistoryTasks: memoizedFetchHistoryTasks, t,
+    pollingIntervalId, setPollingIntervalId, setTaskId, getTasks: memoizedFetchHistoryTasks, t,
   });
 
   const doHandleHistoryItemClick = (task) => {
@@ -640,7 +640,7 @@ function App() {
     setPrompt, setModel, setRatio, setCameraControl, setDuration, setGcsOutputBucket,
     setTaskId, setTaskStatus, setVideoGcsUri, setErrorMessage, setSelectedImage,
     setImagePreview, setSelectedLastImage, setLastImagePreview, setCreateModeClips,
-    setActiveCreateModeVideoSrc, setSelectedClipInTrack, fetchHistoryTasks: memoizedFetchHistoryTasks, t,
+    setActiveCreateModeVideoSrc, setSelectedClipInTrack, getTasks: memoizedFetchHistoryTasks, t,
   });
   
   const doHandleCreateVideoClick = () => {
@@ -654,7 +654,7 @@ function App() {
       t,
       setTaskId, 
       setTaskStatus, 
-      fetchHistoryTasks: memoizedFetchHistoryTasks,
+      getTasks: memoizedFetchHistoryTasks,
       setActiveView, 
       setCreateModeClips, 
       setSelectedClipInTrack, 
@@ -687,7 +687,7 @@ function App() {
 
   const doHandleExtendVideoClick = (taskIdToExtend) => Api.handleExtendVideoClick({
     taskIdToExtend, isExtending, setIsExtending, setErrorMessage, pollingIntervalId, setPollingIntervalId,
-    currentTaskId: taskId, setTaskId, setActiveView, setTaskStatus, fetchHistoryTasks: memoizedFetchHistoryTasks, t,
+    currentTaskId: taskId, setTaskId, setActiveView, setTaskStatus, getTasks: memoizedFetchHistoryTasks, t,
   });
 
   const handleClipClick = (clip) => {
@@ -869,6 +869,7 @@ function App() {
               theme={theme}
               t={t}
               historyTasks={historyTasks}
+              setHistoryTasks={setHistoryTasks}
               historyFilter={historyFilter}
               onHistoryFilterChange={setHistoryFilter}
               activeView={activeView}

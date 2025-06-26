@@ -135,5 +135,6 @@
   "musicGenerationComingSoonMessage": "音乐生成功能即将推出！",
   "videoEditingUnderDevelopmentNoticeTitle": "视频编辑功能 - 开发中",
   "videoEditingUnderDevelopmentNoticeBody": "视频编辑（织梦）模式目前正在积极开发中。您可能会遇到性能问题或错误。",
-  "videoEditingUnderDevelopmentNoticeSuggestion": "此功能占用大量CPU资源。如果运行非常缓慢，请考虑升级您的服务器配置。"
+  "videoEditingUnderDevelopmentNoticeSuggestion": "此功能占用大量CPU资源。如果运行非常缓慢，请考虑升级您的服务器配置。",
+  "page": "页"
 }

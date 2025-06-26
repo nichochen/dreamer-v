@@ -135,5 +135,6 @@
   "musicGenerationComingSoonMessage": "音楽生成機能は近日公開予定です！",
   "videoEditingUnderDevelopmentNoticeTitle": "動画編集機能 - 開発中",
   "videoEditingUnderDevelopmentNoticeBody": "動画編集（ウィーブ）モードは現在活発に開発中です。パフォーマンスの問題やバグが発生する可能性があります。",
-  "videoEditingUnderDevelopmentNoticeSuggestion": "この機能はCPU負荷が高いです。動作が非常に遅い場合は、サーバーリソースの増強を検討してください。"
+  "videoEditingUnderDevelopmentNoticeSuggestion": "この機能はCPU負荷が高いです。動作が非常に遅い場合は、サーバーリソースの増強を検討してください。",
+  "page": "ページ"
 }

@@ -694,23 +694,26 @@ def task_status_route(task_id):
 
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks_route():
-    current_user_email = get_processed_user_email_from_header() # Gets header email or "public@dreamer-v"
-    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 100, type=int)
+    current_user_email = get_processed_user_email_from_header()
+
     if current_user_email == ADMIN_EMAIL:
-        # Admin user sees all tasks
         print(f"Admin user {ADMIN_EMAIL} requesting all tasks.")
-        tasks = VideoGenerationTask.query.order_by(VideoGenerationTask.created_at.desc()).limit(100).all()
-    elif current_user_email: 
-        # Non-admin user (could be their actual email or "public@dreamer-v" if unauthenticated)
-        print(f"User {current_user_email} requesting their tasks.")
-        tasks = VideoGenerationTask.query.filter_by(user=current_user_email).order_by(VideoGenerationTask.created_at.desc()).limit(100).all()
+        query = VideoGenerationTask.query.order_by(VideoGenerationTask.created_at.desc())
     else:
-        # This case should not be reached if get_processed_user_email_from_header has a default fallback.
-        # Safeguard: return no tasks if current_user_email is unexpectedly empty.
-        print("Warning: No user email identified for /api/tasks, returning empty list.")
-        tasks = []
-        
-    return jsonify([task.to_dict() for task in tasks]), 200
+        print(f"User {current_user_email} requesting their tasks.")
+        query = VideoGenerationTask.query.filter_by(user=current_user_email).order_by(VideoGenerationTask.created_at.desc())
+    
+    paginated_tasks = query.paginate(page=page, per_page=per_page, error_out=False)
+    tasks = paginated_tasks.items
+    total_pages = paginated_tasks.pages
+
+    return jsonify({
+        "tasks": [task.to_dict() for task in tasks],
+        "total_pages": total_pages,
+        "current_page": page
+    }), 200
 
 @app.route('/api/task/<task_id>', methods=['DELETE'])
 def delete_task_route(task_id):

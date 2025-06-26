@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { getTasks } from '../api';
 import {
   STATUS_COMPLETED,
   STATUS_PROCESSING,
@@ -13,6 +14,7 @@ function HistorySidebar({
   theme,
   t,
   historyTasks,
+  setHistoryTasks,
   historyFilter,
   onHistoryFilterChange,
   activeView,
@@ -25,6 +27,21 @@ function HistorySidebar({
   onRefreshHistory,
   BACKEND_URL,
 }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  useEffect(() => {
+    getTasks(currentPage, setHistoryTasks, setTotalPages, t);
+  }, [currentPage, setHistoryTasks, setTotalPages, t]);
+
+  const handlePrevPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  };
+
   return (
     <div className={`right-sidebar p-3 border-start ${theme === 'dark' ? 'bg-dark text-light' : 'bg-light text-dark'}`} style={{ display: 'flex', flexDirection: 'column' }}>
       <div className="card border-0 flex-grow-1">
@@ -40,7 +57,7 @@ function HistorySidebar({
             />
           </div>
           {historyTasks.filter(task => task.prompt && task.prompt.toLowerCase().includes(historyFilter.toLowerCase())).length === 0 && <p className={`${theme === 'dark' ? 'text-light' : 'text-muted'}`}>{t('historyNoMatchingTasks')}</p>}
-          <ul className="list-group list-group-flush flex-grow-1" style={{ overflowY: 'auto', maxHeight: 'calc(79vh)' }}>
+          <ul className="list-group list-group-flush flex-grow-1" style={{ overflowY: 'auto', maxHeight: 'calc(70vh)' }}>
             {historyTasks
               .filter(task => task.prompt && task.prompt.toLowerCase().includes(historyFilter.toLowerCase()))
               .map((task) => {
@@ -123,9 +140,18 @@ function HistorySidebar({
                   );
                 })}
               </ul>
+            <div className="d-flex justify-content-between align-items-center mt-3">
+              <button className="btn btn-sm btn-outline-secondary" onClick={handlePrevPage} disabled={currentPage === 1}>
+                <i className="bi bi-arrow-left"></i>
+              </button>
+              <span>{t('page')} {currentPage} / {totalPages}</span>
+              <button className="btn btn-sm btn-outline-secondary" onClick={handleNextPage} disabled={currentPage === totalPages}>
+                <i className="bi bi-arrow-right"></i>
+              </button>
             </div>
           </div>
         </div>
+      </div>
   );
 }
 
