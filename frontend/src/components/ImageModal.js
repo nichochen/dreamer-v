@@ -28,12 +28,12 @@ function ImageModal({ showModal, setShowModal, imageUrl, t }) {
       }}
     >
       <div className="modal-dialog modal-xl" style={{ margin: 0, display: 'flex', alignItems: 'center', minHeight: 'calc(100% - (1.75rem * 2))' }}>
-        <div className="modal-content" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column', width: '100%' }}>
-          <div className="modal-body text-center" style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <div className="modal-content" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column', width: '100%', overflowY: 'auto' }}>
+          <div className="modal-body text-center" style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <img
               src={imageUrl}
               alt={t('imagePreviewModalAlt')}
-              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
+              style={{ maxWidth: '100%', objectFit: 'contain', display: 'block' }}
               onClick={(e) => e.stopPropagation()}
             />
             <button
