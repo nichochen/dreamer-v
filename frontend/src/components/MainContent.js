@@ -618,19 +618,19 @@ function MainContent({
                 )
               }
             </div>
-            {activeView === 'dream' && (
-            <div
-              className="video-resize-handle"
-              onMouseDown={onMouseDownResize}
-              title={t('resizeVideoAreaTooltip', { height: videoHeight })}
-            >
-              <i className="bi bi-grip-horizontal"></i>
-            </div>
-            )}
           </div>
           {taskId && activeView === 'dream' && (
             <div className="card mt-3">
               <div className="card-body">
+                {activeView === 'dream' && (
+                <div
+                  className="video-resize-handle mb-3"
+                  onMouseDown={onMouseDownResize}
+                  title={t('resizeVideoAreaTooltip', { height: videoHeight })}
+                >
+                  <i className="bi bi-grip-horizontal"></i>
+                </div>
+                )}
                 <h5 className="card-title"><i className="bi bi-info-circle me-2"></i>{t('taskDetailTitle')}</h5>
                 <p className="card-text mb-1"><strong><i className="bi bi-fingerprint me-2"></i>{t('taskIDLabel')}</strong> <small>{taskId}</small></p>
                 {currentTask && currentTask.prompt && (
