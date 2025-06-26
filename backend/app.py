@@ -375,7 +375,13 @@ def _run_video_generation(task_id):
                 elif "generatedSamples" in response_data and response_data["generatedSamples"]:
                     gcs_raw_uri = response_data["generatedSamples"][0].get("video", {}).get("uri")
 
-                if gcs_raw_uri:
+                if "raiMediaFilteredCount" in response_data and response_data["raiMediaFilteredCount"] > 0:
+                    task.status = "failed"
+                    # Try to get a descriptive reason
+                    reasons = response_data.get("raiMediaFilteredReasons", ["RAI filtering."])
+                    task.error_message = f"Video generation failed due to RAI policy: {reasons[0]}"
+                    print(f"Task {task_id} failed due to RAI filtering: {reasons}")
+                elif gcs_raw_uri:
                     # Ensure gcs_raw_uri is stored with gs:// prefix if it's a GCS path
                     if "storage.cloud.google.com" in gcs_raw_uri:
                         # Convert https to gs:// before saving if it came from an older process or manual entry
@@ -422,8 +428,9 @@ def _run_video_generation(task_id):
                         print(f"Error during video download or thumbnail generation for task {task_id}: {e_dl_thumb}")
                         task.error_message = (task.error_message or "") + f"; Download/Thumbnail failed: {e_dl_thumb}"
                 else:
-                    task.video_gcs_uri = gcs_raw_uri # Fallback if not a GCS URI, no download possible
-                    print(f"Video generation completed for task {task_id}. Non-GCS URI: {task.video_gcs_uri}")
+                    task.status = "failed"
+                    task.error_message = "Generation finished but no video URI or RAI failure reason found."
+                    print(f"Task {task_id}: {task.error_message}")
             else:
                 task.status = "failed"
                 task.error_message = "Generation finished but no video URI found or unexpected result."
