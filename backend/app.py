@@ -768,25 +768,25 @@ def delete_task_route(task_id):
 @app.route('/api/videos/<filename>')
 def serve_video(filename):
     response = send_from_directory(videos_dir, filename)
-    response.headers['Cache-Control'] = 'public, max-age=3600'
+    response.headers['Cache-Control'] = 'public, max-age=360000'
     return response
 
 @app.route('/api/thumbnails/<filename>')
 def serve_thumbnail(filename):
     response = send_from_directory(thumbnails_dir, filename)
-    response.headers['Cache-Control'] = 'public, max-age=3600'
+    response.headers['Cache-Control'] = 'public, max-age=360000'
     return response
 
 @app.route('/api/uploads/<filename>')
 def serve_upload(filename):
     response = send_from_directory(uploads_dir, filename)
-    response.headers['Cache-Control'] = 'public, max-age=3600'
+    response.headers['Cache-Control'] = 'public, max-age=360000'
     return response
 
 @app.route('/api/user_uploaded_music/<filename>')
 def serve_user_uploaded_music(filename):
     response = send_from_directory(user_uploaded_music_dir, filename)
-    response.headers['Cache-Control'] = 'public, max-age=3600'
+    response.headers['Cache-Control'] = 'public, max-age=360000'
     return response
 
 @app.route('/api/health', methods=['GET'])
