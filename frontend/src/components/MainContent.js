@@ -600,7 +600,7 @@ function MainContent({
                       {t('videoTagNotSupported')}
                     </video>
                   ) : (
-                    <div className={`${theme === 'dark' ? 'bg-secondary' : 'bg-light'} border rounded d-flex align-items-center justify-content-center w-100 h-100`}>
+                    <div className={`${theme === 'dark' ? 'bg-secondary' : 'bg-light'} rounded d-flex align-items-center justify-content-center w-100 h-100`}>
                       <p className="text-danger">{errorMessage || t('videoDataUnavailable')}</p>
                     </div>
                   )
@@ -611,7 +611,7 @@ function MainContent({
                     </div>
                   </div>
                 ) : (
-                  <div className={`${theme === 'dark' ? 'bg-black' : 'bg-light'} border rounded d-flex flex-column align-items-center justify-content-center w-100 h-100`}>
+                  <div className={`${theme === 'dark' ? 'bg-black' : 'bg-light'} rounded d-flex flex-column align-items-center justify-content-center w-100 h-100`}>
                 <i className={`bi bi-film ${theme === 'dark' ? 'text-light' : 'text-dark'}`} style={{ fontSize: '3.8rem', opacity: 0.8 }}></i>
                 <p className={`mt-2 ${theme === 'dark' ? 'text-light-emphasis' : 'text-muted'}`}>{t('dreamViewPlaceholderHint')}</p>
                   </div>
@@ -709,7 +709,7 @@ function MainContent({
                   {t('videoTagNotSupported')}
                 </video>
               ) : (
-                <div className={`${theme === 'dark' ? 'bg-black' : 'bg-light'} border rounded d-flex flex-column align-items-center justify-content-center w-100 h-100`}>
+                <div className={`${theme === 'dark' ? 'bg-black' : 'bg-light'} rounded d-flex flex-column align-items-center justify-content-center w-100 h-100`}>
                   <i className="bi bi-film" style={{ fontSize: '3rem', opacity: 0.5 }}></i>
                   <p className="mt-2">{t('createVideoPlaceholder')}</p>
                 </div>
