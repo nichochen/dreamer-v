@@ -547,7 +547,7 @@ function MainContent({
         <div className="d-flex flex-column flex-grow-1"> {/* Allow this section to grow vertically */}
           <div ref={videoContainerRef} className="card video-display-card">
             <div
-              className="card-body ${theme === 'dark' ? 'bg-dark text-light' : 'bg-secondary'}"
+              className={`card-body ${theme === 'dark' ? 'bg-black text-light' : 'bg-secondary'}`}
               style={{ height: `${videoHeight}px`, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}
               onMouseEnter={() => activeView === 'dream' && setIsHoveringVideo(true)}
               onMouseLeave={() => activeView === 'dream' && setIsHoveringVideo(false)}
@@ -558,9 +558,20 @@ function MainContent({
                     <p>{taskStatus === STATUS_COMPLETED_WAITING_URI ? t(STATUS_COMPLETED_WAITING_URI + 'Status') : t('processingMessage')}</p>
                   </div>
                 ) : (taskStatus === STATUS_FAILED || taskStatus === STATUS_ERROR) ? (
-                  <div className="d-flex flex-column justify-content-center align-items-center w-100 h-100">
-                    <img src="/fail.png" alt={t('failedAltText')} style={{ width: '100px', height: '100px', marginBottom: '10px' }} />
-                    <p style={{ maxWidth: '60%', wordWrap: 'break-word' }}>{errorMessage || t('errorMessageGeneric')}</p>
+                  <div 
+                    className="d-flex flex-column justify-content-center align-items-center w-100 h-100"
+                    style={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)', // Dark, semi-transparent background
+                      borderRadius: '15px', // Rounded corners
+                      padding: '20px', // Padding around the content
+                      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)', // Subtle shadow for depth
+                      border: '0px solid rgba(255, 255, 255, 0.1)', // Faint border
+                    }}
+                  >
+                    <img src="/fail.png" alt={t('failedAltText')} style={{ width: '100px', height: '100px', marginBottom: '20px' }} />
+                    <p className="text-center" style={{ maxWidth: '75%', wordWrap: 'break-word', color: '#f8f9fa' }}>
+                      {errorMessage || t('errorMessageGeneric')}
+                    </p>
                   </div>
                 ) : taskStatus === STATUS_COMPLETED ? (
                   videoGcsUri ? (
