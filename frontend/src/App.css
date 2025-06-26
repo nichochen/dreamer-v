@@ -538,3 +538,7 @@ body {
 .clip-resize-handle.end {
   right: -5px; /* Position half of its width outside to the right */
 }
+
+.btn-no-border {
+  border: none !important;
+}
