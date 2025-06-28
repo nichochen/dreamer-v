@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# ASCII Art
+echo '
+██████╗░██████╗░███████╗░█████╗░███╗░░░███╗███████╗██████╗░░░░░░░██╗░░░██╗
+██╔══██╗██╔══██╗██╔════╝██╔══██╗████╗░████║██╔════╝██╔══██╗░░░░░░██║░░░██║
+██║░░██║██████╔╝█████╗░░███████║██╔████╔██║█████╗░░██████╔╝█████╗╚██╗░██╔╝
+██║░░██║██╔══██╗██╔══╝░░██╔══██║██║╚██╔╝██║██╔══╝░░██╔══██╗╚════╝░╚████╔╝░
+██████╔╝██║░░██║███████╗██║░░██║██║░╚═╝░██║███████╗██║░░██║░░░░░░░░╚██╔╝░░
+╚═════╝░╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝╚═╝░░░░░╚═╝╚══════╝╚═╝░░╚═╝░░░░░░░░░╚═╝░░░
+'
+
 # Script to run the Dreamer-V Docker container with necessary configurations.
 
 # --- Configuration ---
@@ -39,6 +49,9 @@ FINAL_GCP_PROJECT_ID="${ARG_GCP_PROJECT_ID:-$GCP_PROJECT_ID}"
 FINAL_GCP_REGION="${ARG_GCP_REGION:-$GCP_REGION}"
 FINAL_VIDEO_GCS_BUCKET="${ARG_VIDEO_GCS_BUCKET:-$VIDEO_GCS_BUCKET}"
 
+# Remove gs:// prefix from bucket name if present
+FINAL_VIDEO_GCS_BUCKET=${FINAL_VIDEO_GCS_BUCKET#gs://}
+
 # --- Environment Variable and Argument Checks ---
 missing_vars_found=false
 error_message="Error: The following required configurations are not set (either via environment variables or command-line arguments):"
@@ -65,6 +78,22 @@ if [ "$missing_vars_found" = true ]; then
   exit 1
 fi
 
+gcloud config set project ${FINAL_GCP_PROJECT_ID}
+
+# --- GCS Bucket Check and Creation ---
+# echo "Checking for GCS bucket: gs://$FINAL_VIDEO_GCS_BUCKET..."
+# if ! gsutil ls -b "gs://$FINAL_VIDEO_GCS_BUCKET" &>/dev/null; then
+#   echo "Bucket does not exist. Attempting to create it..."
+#   if ! gsutil mb -p "$FINAL_GCP_PROJECT_ID" -l "$FINAL_GCP_REGION" "gs://$FINAL_VIDEO_GCS_BUCKET"; then
+#     echo "Error: Failed to create GCS bucket. Please check your permissions and configuration."
+#     exit 1
+#   fi
+#   echo "Bucket created successfully."
+# else
+#   echo "Bucket already exists."
+# fi
+# echo ""
+
 # Optional: Set a custom container name
 CONTAINER_NAME="dreamer-v-app"
 IMAGE_NAME="nicosoft/dreamer-v:latest"
@@ -77,7 +106,7 @@ CONTAINER_PORT_NGINX=80
 # --- Host Volume Mounts ---
 # These paths are relative to the location of this script (expected to be in ai-video-generator directory)
 # Ensure these directories exist on your host machine if Docker doesn't create them automatically for bind mounts.
-HOST_DATA_DIR="$(pwd)/backend/data"
+HOST_DATA_DIR="$(pwd)/dreamer-v-data/backend/data"
 
 # Create host directories if they don't exist to prevent Docker from creating them as root-owned.
 mkdir -p "$HOST_DATA_DIR"
