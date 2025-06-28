@@ -8,7 +8,7 @@ i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    supportedLngs: ['en', 'es', 'zh-CN', 'ja'], // Add more languages as needed
+    supportedLngs: ['en', 'es', 'zh-CN', 'ja', 'ko'], // Add more languages as needed
     fallbackLng: 'en',
     detection: {
       order: ['queryString', 'cookie', 'localStorage', 'sessionStorage', 'navigator', 'htmlTag'],

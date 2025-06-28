@@ -78,13 +78,14 @@ function TopToolbar({
           data-bs-toggle="dropdown"
           aria-expanded="false"
         >
-          {i18n.language === 'es' ? '🇪🇸' : (i18n.language === 'zh-CN' ? '🇨🇳' : (i18n.language === 'ja' ? '🇯🇵' : '🇺🇸'))}
+          {i18n.language === 'es' ? '🇪🇸' : (i18n.language === 'zh-CN' ? '🇨🇳' : (i18n.language === 'ja' ? '🇯🇵' : (i18n.language === 'ko' ? '🇰🇷' : '🇺🇸')))}
         </button>
         <ul className={`dropdown-menu dropdown-menu-end ${theme === 'dark' ? 'dropdown-menu-dark' : ''}`} aria-labelledby="languageDropdownButtonToolbar">
           <li><button className="dropdown-item" type="button" onClick={() => onChangeLanguage('en')}>🇺🇸 English</button></li>
           <li><button className="dropdown-item" type="button" onClick={() => onChangeLanguage('es')}>🇪🇸 Español</button></li>
             <li><button className="dropdown-item" type="button" onClick={() => onChangeLanguage('zh-CN')}>🇨🇳 简体中文</button></li>
             <li><button className="dropdown-item" type="button" onClick={() => onChangeLanguage('ja')}>🇯🇵 日本語</button></li>
+            <li><button className="dropdown-item" type="button" onClick={() => onChangeLanguage('ko')}>🇰🇷 한국어</button></li>
           </ul>
         </div>
       </div>
