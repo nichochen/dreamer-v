@@ -46,7 +46,7 @@ shift $((OPTIND -1))
 
 # Use arguments if provided, otherwise use environment variables
 FINAL_GCP_PROJECT_ID="${ARG_GCP_PROJECT_ID:-$GCP_PROJECT_ID}"
-FINAL_GCP_REGION="${ARG_GCP_REGION:-$GCP_REGION}"
+FINAL_GCP_REGION="${ARG_GCP_REGION:-${GCP_REGION:-us-central1}}"
 FINAL_VIDEO_GCS_BUCKET="${ARG_VIDEO_GCS_BUCKET:-$VIDEO_GCS_BUCKET}"
 
 # Remove gs:// prefix from bucket name if present
@@ -61,16 +61,6 @@ if [ -z "$FINAL_GCP_PROJECT_ID" ]; then
   missing_vars_found=true
 fi
 
-if [ -z "$FINAL_GCP_REGION" ]; then
-  error_message="${error_message}\n  - GCP_REGION (env: GCP_REGION, arg: -r)"
-  missing_vars_found=true
-fi
-
-if [ -z "$FINAL_VIDEO_GCS_BUCKET" ]; then
-  error_message="${error_message}\n  - VIDEO_GCS_BUCKET (env: VIDEO_GCS_BUCKET, arg: -b)"
-  missing_vars_found=true
-fi
-
 if [ "$missing_vars_found" = true ]; then
   echo -e "$error_message"
   echo "Please set them before running this script."
@@ -78,21 +68,27 @@ if [ "$missing_vars_found" = true ]; then
   exit 1
 fi
 
+# If no bucket is provided, create a default one
+if [ -z "$FINAL_VIDEO_GCS_BUCKET" ]; then
+  FINAL_VIDEO_GCS_BUCKET="dreamer-v-${FINAL_GCP_PROJECT_ID}-${USER}-data"
+  echo "No GCS bucket provided. Using default: gs://$FINAL_VIDEO_GCS_BUCKET"
+fi
+
 gcloud config set project ${FINAL_GCP_PROJECT_ID}
 
 # --- GCS Bucket Check and Creation ---
-# echo "Checking for GCS bucket: gs://$FINAL_VIDEO_GCS_BUCKET..."
-# if ! gsutil ls -b "gs://$FINAL_VIDEO_GCS_BUCKET" &>/dev/null; then
-#   echo "Bucket does not exist. Attempting to create it..."
-#   if ! gsutil mb -p "$FINAL_GCP_PROJECT_ID" -l "$FINAL_GCP_REGION" "gs://$FINAL_VIDEO_GCS_BUCKET"; then
-#     echo "Error: Failed to create GCS bucket. Please check your permissions and configuration."
-#     exit 1
-#   fi
-#   echo "Bucket created successfully."
-# else
-#   echo "Bucket already exists."
-# fi
-# echo ""
+echo "Checking for GCS bucket: gs://$FINAL_VIDEO_GCS_BUCKET..."
+if ! gsutil ls -b "gs://$FINAL_VIDEO_GCS_BUCKET" &>/dev/null; then
+  echo "Bucket does not exist. Attempting to create it..."
+  if ! gsutil mb -p "$FINAL_GCP_PROJECT_ID" -l "$FINAL_GCP_REGION" "gs://$FINAL_VIDEO_GCS_BUCKET"; then
+    echo "Error: Failed to create GCS bucket. Please check your permissions and configuration."
+    exit 1
+  fi
+  echo "Bucket created successfully."
+else
+  echo "Bucket already exists."
+fi
+echo ""
 
 # Optional: Set a custom container name
 CONTAINER_NAME="dreamer-v-app"
@@ -145,7 +141,7 @@ sudo docker run -d \
     -p "$HOST_PORT_NGINX:$CONTAINER_PORT_NGINX" \
     -e "GCP_PROJECT_ID=$FINAL_GCP_PROJECT_ID" \
     -e "GCP_REGION=$FINAL_GCP_REGION" \
-    -e "VIDEO_GCS_BUCKET=$FINAL_VIDEO_GCS_BUCKET" \
+    -e "VIDEO_GCS_BUCKET=gs://$FINAL_VIDEO_GCS_BUCKET" \
     -v ${HOME}/.config/gcloud/:/app/secret/ \
     -v "$HOST_DATA_DIR:/app/backend/data" \
     --rm \
