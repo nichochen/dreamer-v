@@ -1,34 +1,16 @@
-# -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-import datetime
 import json
 import os
 from typing import Optional, Dict, Any, List
 
-import google.auth
-import google.auth.transport.requests
 import requests
+
+from google_auth import get_access_token
+
 
 class GoogleImagen:
     """
     A client for interacting with the Google Cloud Vertex AI Imagen API for image generation.
     """
-    _access_token: Optional[str] = None
-    _token_created_at: Optional[datetime.datetime] = None
-    _TOKEN_EXPIRATION_MINUTES = 30 # Cache token for 30 minutes
 
     def __init__(self, project_id: str, location: str, model_id: str = "imagegeneration@005"):
         """
@@ -56,40 +38,11 @@ class GoogleImagen:
             f"{self.project_id}/locations/{self.location}/publishers/google/models/{self.model_id}:predict"
         )
 
-    def _get_access_token(self) -> str:
-        """
-        Retrieves a valid access token, refreshing it if necessary using google.auth.
-        """
-        now = datetime.datetime.now(datetime.timezone.utc)
-        if (
-            GoogleImagen._access_token is None or
-            GoogleImagen._token_created_at is None or
-            (now - GoogleImagen._token_created_at) > datetime.timedelta(minutes=GoogleImagen._TOKEN_EXPIRATION_MINUTES)
-        ):
-            try:
-                creds, _ = google.auth.default(scopes=['https://www.googleapis.com/auth/cloud-platform'])
-                auth_req = google.auth.transport.requests.Request()
-                creds.refresh(auth_req)
-                GoogleImagen._access_token = creds.token
-                GoogleImagen._token_created_at = now
-                print("Generated new access token for Imagen.")
-            except google.auth.exceptions.DefaultCredentialsError as e:
-                raise RuntimeError(
-                    "Failed to get default Google Cloud credentials. "
-                    "Ensure you are authenticated (e.g., `gcloud auth application-default login`)."
-                ) from e
-            except Exception as e:
-                raise RuntimeError(f"An unexpected error occurred while refreshing token: {e}") from e
-        
-        if GoogleImagen._access_token is None:
-             raise RuntimeError("Access token could not be obtained.")
-        return GoogleImagen._access_token
-
     def _send_request_to_google_api(self, data: dict) -> Dict[str, Any]:
         """
         Sends an HTTP POST request to the configured Google API endpoint.
         """
-        access_token = self._get_access_token()
+        access_token = get_access_token()
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json; charset=utf-8",
@@ -262,95 +215,3 @@ class GoogleImagen:
         except Exception as e:
             print(f"An unexpected error occurred in generate_image: {e}")
             return None
-
-if __name__ == '__main__':
-    # Ensure GOOGLE_APPLICATION_CREDENTIALS is set or gcloud auth application-default login has been run.
-    project_id_env = os.environ.get("GOOGLE_CLOUD_PROJECT")
-    location_env = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
-    
-    # Recommended: Use a generally available model like "imagegeneration@005" or "imagen-3.0-generate-002"
-    # Or a preview model if you have access: "imagen-4.0-generate-preview-06-06"
-    model_id_env = os.environ.get("GOOGLE_IMAGEN_MODEL_ID", "imagegeneration@005") 
-
-    if not project_id_env:
-        print("Error: The GOOGLE_CLOUD_PROJECT environment variable is not set.")
-        print("Please set it to your Google Cloud Project ID.")
-        print("Example: export GOOGLE_CLOUD_PROJECT='your-project-id'")
-    else:
-        print(f"Using Project ID: {project_id_env}, Location: {location_env}, Model ID: {model_id_env}")
-        
-        try:
-            imagen_client = GoogleImagen(
-                project_id=project_id_env, 
-                location=location_env, 
-                model_id=model_id_env
-            )
-            
-            prompt_text = "A stunning professional photograph of a majestic snow leopard on a rocky mountain peak, golden hour lighting."
-            print(f"\nGenerating image for prompt: '{prompt_text}'...")
-            
-            # Example 1: Basic generation with base64 output
-            image_response = imagen_client.generate_image(
-                prompt=prompt_text,
-                sample_count=1,
-                aspect_ratio="16:9",
-                add_watermark=False, # Often set to False if using seed for reproducibility
-                seed=12345,
-                output_mime_type="image/png"
-            )
-
-            if image_response and "predictions" in image_response:
-                print("Image generation successful (base64).")
-                for i, prediction in enumerate(image_response["predictions"]):
-                    print(f"\nPrediction {i+1}:")
-                    if "bytesBase64Encoded" in prediction and prediction["bytesBase64Encoded"]:
-                        print(f"  MIME Type: {prediction.get('mimeType')}")
-                        print(f"  Image bytes (first 64 chars): {prediction['bytesBase64Encoded'][:64]}...")
-                        # To save the image:
-                        # import base64
-                        # file_extension = prediction.get('mimeType', 'image/png').split('/')[-1]
-                        # image_bytes = base64.b64decode(prediction["bytesBase64Encoded"])
-                        # filename = f"generated_image_{i+1}.{file_extension}"
-                        # with open(filename, "wb") as f:
-                        #     f.write(image_bytes)
-                        # print(f"  Image {i+1} saved as {filename} (example code, currently commented out)")
-                    elif prediction.get("raiFilteredReason"):
-                        print(f"  Image filtered by Responsible AI. Reason: {prediction['raiFilteredReason']}")
-                    else:
-                        print(f"  Unexpected prediction format: {prediction}")
-            elif image_response:
-                print(f"Image generation returned a response, but no 'predictions' field found or it's empty.")
-                print(f"Full response: {json.dumps(image_response, indent=2)}")
-            else:
-                print("Image generation failed or no response received.")
-
-            # Example 2: Store image in GCS (Uncomment and set your GCS_BUCKET_URI_PREFIX)
-            # your_gcs_bucket_uri_prefix = f"gs://your-gcs-bucket-name/imagen_outputs/" # IMPORTANT: Replace
-            # if "your-gcs-bucket-name" in your_gcs_bucket_uri_prefix:
-            #    print("\nSkipping GCS storage example: GCS_BUCKET_URI_PREFIX not configured.")
-            # else:
-            #    print(f"\nGenerating image and storing in GCS prefix: {your_gcs_bucket_uri_prefix}")
-            #    gcs_image_response = imagen_client.generate_image(
-            #        prompt="A whimsical watercolor painting of a red panda playing a tiny flute in a bamboo forest.",
-            #        sample_count=1,
-            #        storage_uri=your_gcs_bucket_uri_prefix, # API will append filenames
-            #        aspect_ratio="1:1"
-            #    )
-            #    if gcs_image_response and "predictions" in gcs_image_response:
-            #        print("Image generation for GCS storage successful.")
-            #        for i, prediction in enumerate(gcs_image_response["predictions"]):
-            #             if "storageUri" in prediction:
-            #                 print(f"  Image {i+1} stored at GCS URI: {prediction['storageUri']}")
-            #             elif prediction.get("raiFilteredReason"):
-            #                 print(f"  Image {i+1} filtered by Responsible AI. Reason: {prediction['raiFilteredReason']}")
-            #             else:
-            #                 print(f"  Prediction {i+1} (GCS): {prediction}")
-            #    else:
-            #        print("Image generation for GCS storage failed or no predictions returned.")
-            #        if gcs_image_response:
-            #            print(f"Full response for GCS attempt: {json.dumps(gcs_image_response, indent=2)}")
-
-        except RuntimeError as e:
-            print(f"An error occurred during Imagen client initialization or usage: {e}")
-        except Exception as e:
-            print(f"An unexpected error occurred in the main execution block: {e}")

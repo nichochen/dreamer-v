@@ -3,8 +3,8 @@ import json
 import os
 import uuid
 import requests
-import google.auth
-import google.auth.transport.requests
+
+from google_auth import get_access_token
 
 class GoogleLyria:
     def __init__(self, project_id: str, location: str = "us-central1"):
@@ -13,16 +13,6 @@ class GoogleLyria:
         self.api_endpoint = f"https://{location}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{location}/publishers/google/models/lyria-002:predict"
         self.output_dir = "data/generated_music"
         os.makedirs(self.output_dir, exist_ok=True)
-
-    def _get_access_token(self):
-        try:
-            credentials, project = google.auth.default(scopes=['https://www.googleapis.com/auth/cloud-platform'])
-            auth_req = google.auth.transport.requests.Request()
-            credentials.refresh(auth_req)
-            return credentials.token
-        except Exception as e:
-            print(f"Error getting access token: {e}")
-            raise
 
     def generate_music(self, prompt: str, negative_prompt: str = None, seed: int = None) -> str:
         """
@@ -37,7 +27,7 @@ class GoogleLyria:
             The file path of the saved WAV file, or None if generation failed.
         """
         try:
-            access_token = self._get_access_token()
+            access_token = get_access_token()
         except Exception:
             return None
 
@@ -103,41 +93,3 @@ class GoogleLyria:
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
             return None
-
-if __name__ == '__main__':
-    # This is an example of how to use the class.
-    # You'll need to set your GOOGLE_APPLICATION_CREDENTIALS environment variable
-    # and have the aiplatform.googleapis.com API enabled for your project.
-    
-    # Replace 'your-gcp-project-id' with your actual GCP project ID
-    gcp_project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") 
-    if not gcp_project_id:
-        print("Error: GOOGLE_CLOUD_PROJECT environment variable not set.")
-        print("Please set it to your Google Cloud Project ID.")
-    else:
-        lyria_client = GoogleLyria(project_id=gcp_project_id)
-        
-        # Example usage:
-        test_prompt = "A futuristic synthwave track with a driving beat and neon melodies."
-        test_negative_prompt = "acoustic guitar, piano"
-        test_seed = 12345
-        
-        print(f"Generating music for prompt: '{test_prompt}'...")
-        file_path = lyria_client.generate_music(
-            prompt=test_prompt,
-            negative_prompt=test_negative_prompt,
-            seed=test_seed
-        )
-        
-        if file_path:
-            print(f"Successfully generated music: {file_path}")
-        else:
-            print("Failed to generate music.")
-
-        # Example with minimal parameters
-        # print("\nGenerating music with minimal prompt...")
-        # file_path_minimal = lyria_client.generate_music(prompt="A happy ukulele tune.")
-        # if file_path_minimal:
-        #     print(f"Successfully generated music: {file_path_minimal}")
-        # else:
-        #     print("Failed to generate music.")
