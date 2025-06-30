@@ -112,16 +112,18 @@ function HistorySidebar({
                         </div>
                       </div>
                     ) : (task.status === STATUS_PROCESSING || task.status === STATUS_PENDING || task.status === STATUS_INITIALIZING || task.status === STATUS_COMPLETED_WAITING_URI) ? (
-                      <div className="me-2" title={t('videoTrackHeadIconTitle', "Start of video track")}>
-                <img src="/gears.gif" alt={t('statusIconAlt', "Status icon")} style={{ width: '80px', height: '80px', borderRadius: '8px' }} />
-              </div>
+                      <div className={`thumbnail-container position-relative mb-2 ${isCurrentDreamTask || isSelectedInCreateTrack ? 'selected-thumbnail-custom-border' : ''}`} title={t('videoTrackHeadIconTitle', "Start of video track")}>
+                        <img src="/gears.gif" alt={t('statusIconAlt', "Status icon")} style={{ width: '80px', height: '80px', borderRadius: '8px' }} />
+                      </div>
                     ) : task.status === STATUS_FAILED || task.status === STATUS_ERROR ? (
-                      <img
-                        src="/fail.png"
-                        alt={t('historyFailedAlt')}
-                        className="img-thumbnail mb-2"
-                        style={{ width: '80px', height: '80px' }}
-                      />
+                      <div className={`thumbnail-container position-relative mb-2 ${isCurrentDreamTask || isSelectedInCreateTrack ? 'selected-thumbnail-custom-border' : ''}`}>
+                        <img
+                          src="/fail.png"
+                          alt={t('historyFailedAlt')}
+                          className="img-thumbnail"
+                          style={{ width: '80px', height: '80px' }}
+                        />
+                      </div>
                     ) : null}
 
                     {task.status === STATUS_PROCESSING && (
