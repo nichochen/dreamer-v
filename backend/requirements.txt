@@ -10,4 +10,6 @@ google-cloud-aiplatform>=1.38.0 # For Vertex AI integration
 python-dotenv>=0.15.0 # For loading .env files
 moviepy==2.2.1 # Pin to a specific recent version
 gunicorn
+psycopg2-binary
+pg8000
 # Add other specific versions if known or required

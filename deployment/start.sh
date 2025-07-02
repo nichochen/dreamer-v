@@ -19,29 +19,12 @@ if [ -z "$VIDEO_GCS_BUCKET" ]; then
 fi
 echo "VIDEO_GCS_BUCKET: $VIDEO_GCS_BUCKET"
 
-# Define the database path
-DB_PATH="/app/backend/data/tasks.db"
-DB_DIR=$(dirname "$DB_PATH")
-
-# Check if the database directory exists, create if not
-if [ ! -d "$DB_DIR" ]; then
-  echo "Database directory not found. Creating $DB_DIR..."
-  mkdir -p "$DB_DIR"
-fi
-
-# Check if the database file exists, create if not
-if [ ! -f "$DB_PATH" ]; then
-  echo "Database file not found. Creating $DB_PATH..."
-  sqlite3 "$DB_PATH" ".databases"
-  echo "Database file created. Initializing schema..."
-  python /app/backend/migrate_db.py
-else
-  # Even if the DB file exists, it's good practice to ensure migrations are up to date.
-  # Depending on how migrate_db.py is written, it might handle this.
-  # For now, we'll assume it's safe to run or it handles existing schemas gracefully.
-  echo "Database file found. Ensuring schema is up to date..."
-  python /app/backend/migrate_db.py
-fi
+# --- Database Migration ---
+# This script now supports both SQLite and PostgreSQL.
+# It will create the tables if they don't exist and apply any necessary migrations.
+echo "Running database migrations..."
+python /app/backend/migrate_db.py
+echo "Database migration check complete."
 
 # Start the Flask backend in the background
 echo "Starting Flask backend..."

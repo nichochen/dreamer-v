@@ -1,169 +1,202 @@
-import sqlite3
+import sys
 import os
+import argparse
 
-# --- Configuration ---
-backend_dir = os.path.abspath(os.path.dirname(__file__))
-data_dir = os.path.join(backend_dir, 'data')
-db_path = os.path.join(data_dir, 'tasks.db')
+# Add the project root to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# SQL command to create the table if it doesn't exist
-# This schema includes the 'video_uri' column directly.
-CREATE_TABLE_SQL = """
- CREATE TABLE video_generation_task (
-    id VARCHAR(36) NOT NULL PRIMARY KEY,
-    prompt VARCHAR(1024) NOT NULL,
-    model VARCHAR(100),
-    aspect_ratio VARCHAR(10),
-    camera_control VARCHAR(50),
-    duration_seconds INTEGER,
-    gcs_output_bucket VARCHAR(1024),
-    status VARCHAR(50),
-    video_gcs_uri VARCHAR(1024), -- This is the renamed column
-    local_video_path VARCHAR(1024),
-    local_thumbnail_path VARCHAR(1024),
-    image_filename VARCHAR(255),
-    image_gcs_uri VARCHAR(1024),
-    last_frame_filename VARCHAR(255),
-    last_frame_gcs_uri VARCHAR(1024),
-    error_message VARCHAR(1024),
-    created_at FLOAT,
-    updated_at FLOAT,
-    video_uri VARCHAR(1024),
-    user VARCHAR(255),
-    music_file_path VARCHAR(1024) -- Added music_file_path column
-);
-"""
+from sqlalchemy import create_engine, inspect, text, Table, MetaData
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import SQLAlchemyError
+from backend.config import DATABASE_URI, data_dir
+from backend.models import VideoGenerationTask
 
-def initialize_schema(cursor):
-    """Creates the table with the full schema if it doesn't exist."""
-    # Note: The CREATE_TABLE_SQL should ideally use "IF NOT EXISTS" for the table itself,
-    # but executescript might handle this. For safety, let's assume it's fine or
-    # the app's db.create_all() handles the initial creation more robustly.
-    # This script is more for ensuring the schema matches or migrating it.
-    # However, the original script uses executescript for CREATE_TABLE.
-    # A more robust way for initial creation is "CREATE TABLE IF NOT EXISTS ..."
-    # Let's modify CREATE_TABLE_SQL to include "IF NOT EXISTS" for the table.
-    # The original script's CREATE_TABLE_SQL doesn't have "IF NOT EXISTS" for the table.
-    # Let's adjust the CREATE_TABLE_SQL to be safer.
-    # Re-evaluating: The original script's CREATE_TABLE_SQL is executed via executescript.
-    # It's better to keep its core logic and add migrations.
-    # The current CREATE_TABLE_SQL will fail if the table exists and schema differs.
-    # This script seems more like a "ensure this exact schema" rather than "create if not exists".
-    # For this task, I will focus on adding the migration steps for the 'user' column.
-    # The original initialize_schema will be kept as is, and migration functions will be added.
+# --- Database Agnostic Migration Script ---
 
-    print("Executing initial schema setup (CREATE TABLE)...")
-    # This will create the table if it doesn't exist, but might error if it exists with a different schema.
-    # This is a limitation of the original script's approach.
-    # For the purpose of this task, we assume this part is for initial setup or that db.create_all() handles it.
-    # We will add specific migration logic for the 'user' column.
+def column_exists(engine, table_name, column_name):
+    """Checks if a column exists in a table in a database-agnostic way."""
+    inspector = inspect(engine)
+    columns = [col['name'] for col in inspector.get_columns(table_name)]
+    return column_name in columns
+
+def initialize_schema(engine):
+    """Creates tables based on the model definitions if they don't exist."""
+    print("Executing initial schema setup (CREATE TABLE IF NOT EXISTS)...")
     try:
-        cursor.executescript(CREATE_TABLE_SQL.replace("CREATE TABLE video_generation_task", "CREATE TABLE IF NOT EXISTS video_generation_task"))
-        print("'video_generation_task' table schema execution complete (using IF NOT EXISTS).")
-    except sqlite3.Error as e:
-        print(f"Note: Error during initial schema execution (this might be okay if table already exists and migrations will handle it): {e}")
+        # Use the model's metadata to create the table, which is db-agnostic
+        VideoGenerationTask.metadata.create_all(engine, checkfirst=True)
+        print("'video_generation_task' table schema check/creation complete.")
+    except SQLAlchemyError as e:
+        print(f"Error during initial schema setup: {e}")
 
-
-def migrate_schema_add_user_column(cursor):
-    """Adds the 'user' column to 'video_generation_task' if it doesn't exist."""
-    print("Checking for 'user' column in 'video_generation_task' table...")
-    cursor.execute("PRAGMA table_info(video_generation_task);")
-    columns = [info[1] for info in cursor.fetchall()]
-    
-    if 'user' not in columns:
-        print("Adding 'user' column to 'video_generation_task' table...")
+def migrate_schema_add_column(engine, table_name, column_name, column_type):
+    """Adds a column to a table if it doesn't exist."""
+    if not column_exists(engine, table_name, column_name):
+        print(f"Adding '{column_name}' column to '{table_name}' table...")
         try:
-            cursor.execute("ALTER TABLE video_generation_task ADD COLUMN user VARCHAR(255);")
-            print("'user' column added successfully.")
-        except sqlite3.Error as e:
-            print(f"Error adding 'user' column: {e}. This might happen if it was added concurrently or by another process.")
+            with engine.connect() as connection:
+                # Use text() for cross-compatibility of the SQL statement
+                connection.execute(text(f'ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}'))
+                connection.commit()
+            print(f"'{column_name}' column added successfully.")
+        except SQLAlchemyError as e:
+            print(f"Error adding '{column_name}' column: {e}")
     else:
-        print("'user' column already exists.")
+        print(f"'{column_name}' column already exists in '{table_name}'.")
 
-def migrate_schema_add_music_file_path_column(cursor):
-    """Adds the 'music_file_path' column to 'video_generation_task' if it doesn't exist."""
-    print("Checking for 'music_file_path' column in 'video_generation_task' table...")
-    cursor.execute("PRAGMA table_info(video_generation_task);")
-    columns = [info[1] for info in cursor.fetchall()]
-    
-    if 'music_file_path' not in columns:
-        print("Adding 'music_file_path' column to 'video_generation_task' table...")
-        try:
-            cursor.execute("ALTER TABLE video_generation_task ADD COLUMN music_file_path VARCHAR(1024);")
-            print("'music_file_path' column added successfully.")
-        except sqlite3.Error as e:
-            print(f"Error adding 'music_file_path' column: {e}.")
-    else:
-        print("'music_file_path' column already exists.")
-
-def migrate_schema_add_generate_audio_column(cursor):
-    """Adds the 'generate_audio' column to 'video_generation_task' if it doesn't exist."""
-    print("Checking for 'generate_audio' column in 'video_generation_task' table...")
-    cursor.execute("PRAGMA table_info(video_generation_task);")
-    columns = [info[1] for info in cursor.fetchall()]
-    
-    if 'generate_audio' not in columns:
-        print("Adding 'generate_audio' column to 'video_generation_task' table...")
-        try:
-            cursor.execute("ALTER TABLE video_generation_task ADD COLUMN generate_audio BOOLEAN DEFAULT 0;")
-            print("'generate_audio' column added successfully.")
-        except sqlite3.Error as e:
-            print(f"Error adding 'generate_audio' column: {e}.")
-    else:
-        print("'generate_audio' column already exists.")
-
-def migrate_data_backfill_user_column(cursor):
+def migrate_data_backfill_user_column(engine):
     """Backfills the 'user' column with 'public@dreamer-v' for existing tasks where user is NULL."""
     print("Backfilling 'user' column for existing tasks with 'public@dreamer-v'...")
     try:
-        cursor.execute("UPDATE video_generation_task SET user = 'public@dreamer-v' WHERE user IS NULL;")
-        updated_rows = cursor.rowcount
-        print(f"Successfully backfilled 'user' column for {updated_rows} tasks.")
-    except sqlite3.Error as e:
+        with engine.connect() as connection:
+            # Use text() for cross-compatibility
+            result = connection.execute(text("UPDATE video_generation_task SET \"user\" = 'public@dreamer-v' WHERE \"user\" IS NULL"))
+            connection.commit()
+            print(f"Successfully backfilled 'user' column for {result.rowcount} tasks.")
+    except SQLAlchemyError as e:
+        # Note: Using "user" in quotes for PostgreSQL compatibility, as USER is a reserved keyword.
         print(f"Error backfilling 'user' column: {e}")
 
-def setup_database():
-    conn = None
+def copy_sqlite_to_postgres(sqlite_uri, postgres_uri, force=False):
+    """Copies data from a SQLite database to a PostgreSQL database."""
+    print(f"Starting data copy from SQLite ({sqlite_uri}) to PostgreSQL ({postgres_uri})...")
+    
+    # Create engines for both databases
+    sqlite_engine = create_engine(sqlite_uri)
+    postgres_engine = create_engine(postgres_uri)
+    
+    # Create sessions
+    SessionSqlite = sessionmaker(bind=sqlite_engine)
+    SessionPostgres = sessionmaker(bind=postgres_engine)
+    sqlite_session = SessionSqlite()
+    postgres_session = SessionPostgres()
+    
     try:
-        # Ensure data directory exists
-        if not os.path.exists(data_dir):
+        # Check if the destination table is empty
+        if postgres_session.query(VideoGenerationTask).count() > 0:
+            if not force:
+                print("PostgreSQL database is not empty. Use --force to overwrite. Aborting copy.")
+                return
+            else:
+                print("PostgreSQL database is not empty. --force is used, deleting existing data...")
+                postgres_session.query(VideoGenerationTask).delete()
+                postgres_session.commit()
+                print("Existing data deleted.")
+
+        # Fetch all data from the source table
+        print("Fetching all tasks from SQLite database...")
+        tasks = sqlite_session.query(VideoGenerationTask).all()
+        print(f"Found {len(tasks)} tasks to copy.")
+
+        # Insert data into the destination table
+        print("Inserting tasks into PostgreSQL database...")
+        for old_task in tasks:
+            new_task = VideoGenerationTask(
+                id=old_task.id,
+                prompt=old_task.prompt,
+                model=old_task.model,
+                aspect_ratio=old_task.aspect_ratio,
+                camera_control=old_task.camera_control,
+                duration_seconds=old_task.duration_seconds,
+                gcs_output_bucket=old_task.gcs_output_bucket,
+                status=old_task.status,
+                video_gcs_uri=old_task.video_gcs_uri,
+                local_video_path=old_task.local_video_path,
+                local_thumbnail_path=old_task.local_thumbnail_path,
+                image_filename=old_task.image_filename,
+                image_gcs_uri=old_task.image_gcs_uri,
+                last_frame_filename=old_task.last_frame_filename,
+                last_frame_gcs_uri=old_task.last_frame_gcs_uri,
+                video_uri=old_task.video_uri,
+                error_message=old_task.error_message,
+                user=old_task.user,
+                generate_audio=old_task.generate_audio,
+                created_at=old_task.created_at,
+                updated_at=old_task.updated_at,
+                music_file_path=old_task.music_file_path
+            )
+            postgres_session.add(new_task)
+        
+        postgres_session.commit()
+        print("Data copy successful!")
+
+    except SQLAlchemyError as e:
+        print(f"An error occurred during data copy: {e}")
+        postgres_session.rollback()
+    finally:
+        sqlite_session.close()
+        postgres_session.close()
+
+def setup_database():
+    """Sets up the database by creating tables and running migrations."""
+    print(f"Connecting to database using URI: {DATABASE_URI}")
+    engine = None
+    try:
+        # Ensure data directory exists for SQLite
+        if "sqlite" in DATABASE_URI and not os.path.exists(data_dir):
             os.makedirs(data_dir)
             print(f"Created data directory at {data_dir} as it was missing.")
 
-        # db_exists = os.path.exists(db_path) # This variable is not strictly needed anymore
-        print(f"Connecting to database at {db_path}...")
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
+        engine = create_engine(DATABASE_URI)
 
-        # The initialize_schema function now handles "CREATE TABLE IF NOT EXISTS"
-        # so it's safe to call whether the DB is new or existing.
-        # If the DB is new, the table will be created.
-        # If the DB exists, the table will be created only if it's missing.
-        # If the DB and table exist, no changes will be made to the table.
-        if not os.path.exists(db_path): # Check if DB file is actually new for logging
-             print(f"Database file not found at {db_path}. Creating new database with schema.")
-        else:
-            print("Database file found. Ensuring 'video_generation_task' table exists.")
-            
-        initialize_schema(cursor) 
-        migrate_schema_add_user_column(cursor) 
-        migrate_schema_add_music_file_path_column(cursor) # Add music_file_path column
-        migrate_schema_add_generate_audio_column(cursor)
-        migrate_data_backfill_user_column(cursor) 
+        # Initialize schema (creates table if it doesn't exist)
+        initialize_schema(engine)
+
+        # Run migrations for each required column
+        # Note: For PostgreSQL, BOOLEAN is a native type. For SQLite, it's often INTEGER.
+        # SQLAlchemy handles this abstraction well, but for raw SQL, we need to be careful.
+        # Using VARCHAR for user as it's defined in the model.
+        migrate_schema_add_column(engine, 'video_generation_task', 'user', 'VARCHAR(255)')
+        migrate_schema_add_column(engine, 'video_generation_task', 'music_file_path', 'VARCHAR(1024)')
         
-        conn.commit()
+        # For boolean, the type can be tricky. BOOLEAN is standard SQL.
+        # SQLite will use INTEGER 0/1, PostgreSQL will use true/false.
+        # The model uses db.Boolean, so SQLAlchemy handles the abstraction.
+        # When adding manually, 'BOOLEAN' should be acceptable for both via SQLAlchemy's engine.
+        migrate_schema_add_column(engine, 'video_generation_task', 'generate_audio', 'BOOLEAN')
+
+        # Backfill data
+        migrate_data_backfill_user_column(engine)
+
         print("Database setup and migration successful!")
 
-    except sqlite3.Error as e:
+    except SQLAlchemyError as e:
         print(f"An error occurred during database setup: {e}")
-        if conn:
-            conn.rollback()
         print("Database setup failed.")
     finally:
-        if conn:
-            conn.close()
+        if engine:
+            engine.dispose()
         print("Database connection closed.")
 
 if __name__ == '__main__':
-    print("Starting database setup process...")
-    setup_database()
+    parser = argparse.ArgumentParser(description="Database migration and setup script.")
+    parser.add_argument(
+        '--copy-sqlite-to-postgres',
+        action='store_true',
+        help="Copy data from the default SQLite DB to the configured PostgreSQL DB."
+    )
+    parser.add_argument(
+        '--force',
+        action='store_true',
+        help="Force the copy operation even if the destination database is not empty."
+    )
+    
+    args = parser.parse_args()
+
+    if args.copy_sqlite_to_postgres:
+        # Default source is the local tasks.db
+        default_sqlite_path = os.path.join(data_dir, 'tasks.db')
+        sqlite_uri = f'sqlite:///{default_sqlite_path}'
+        
+        # Destination is the configured DATABASE_URI
+        postgres_uri = DATABASE_URI
+
+        if 'postgres' not in postgres_uri:
+            print("Error: The configured DATABASE_URI is not a PostgreSQL database.")
+        elif not os.path.exists(default_sqlite_path):
+            print(f"Error: Default SQLite database not found at {default_sqlite_path}")
+        else:
+            copy_sqlite_to_postgres(sqlite_uri, postgres_uri, force=args.force)
+    else:
+        print("Starting database setup process...")
+        setup_database()
