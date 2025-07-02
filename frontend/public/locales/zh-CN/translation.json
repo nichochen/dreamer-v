@@ -46,6 +46,7 @@
   "cameraControlLabel": "镜头控制",
   "selectOption": "选择...",
   "videoDurationLabel": "视频时长 (秒)",
+  "generateAudioLabel": "生成音频",
   "gcsOutputBucketLabel": "GCS 输出存储桶 (可选)",
   "gcsOutputBucketPlaceholder": "gs://your-bucket-name/path",
   "generatingButtonInProgress": "生成中...",

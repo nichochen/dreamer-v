@@ -42,6 +42,7 @@ function App() {
   const [cameraControl, setCameraControl] = useState(''); // Default camera control
   const [duration, setDuration] = useState(5); // Default duration in seconds, changed to 5
   const [gcsOutputBucket, setGcsOutputBucket] = useState(''); // GCS output bucket
+  const [generateAudio, setGenerateAudio] = useState(false);
   const [theme, setTheme] = useState('dark'); // 'light' or 'dark' - Defaulted to dark
   const [videoHeight, setVideoHeight] = useState(600); // Default height in pixels (was 750)
   const [isResizing, setIsResizing] = useState(false);
@@ -619,7 +620,7 @@ function App() {
   const doClearLastImagePreview = () => Handlers.clearLastImagePreview(setSelectedLastImage, setLastImagePreview, lastFileInputRef);
 
   const doHandleGenerateClick = () => Api.handleGenerateClick({
-    prompt, model, ratio, cameraControl, duration, gcsOutputBucket, selectedImage, selectedLastImage,
+    prompt, model, ratio, cameraControl, duration, gcsOutputBucket, selectedImage, selectedLastImage, generateAudio,
     setIsLoading, setErrorMessage, setVideoGcsUri, setTaskStatus, setCompletedUriPollRetries,
     pollingIntervalId, setPollingIntervalId, setTaskId, getTasks: memoizedFetchHistoryTasks, t,
   });
@@ -812,6 +813,8 @@ function App() {
               onDurationChange={setDuration}
               gcsOutputBucket={gcsOutputBucket}
               onGcsOutputBucketChange={setGcsOutputBucket}
+              generateAudio={generateAudio}
+              onGenerateAudioChange={(e) => setGenerateAudio(e.target.checked)}
               onGenerateClick={doHandleGenerateClick}
               processingTaskCount={processingTaskCount}
               activeSpinnerButtonKey={activeSpinnerButtonKey}

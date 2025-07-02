@@ -96,6 +96,22 @@ def migrate_schema_add_music_file_path_column(cursor):
     else:
         print("'music_file_path' column already exists.")
 
+def migrate_schema_add_generate_audio_column(cursor):
+    """Adds the 'generate_audio' column to 'video_generation_task' if it doesn't exist."""
+    print("Checking for 'generate_audio' column in 'video_generation_task' table...")
+    cursor.execute("PRAGMA table_info(video_generation_task);")
+    columns = [info[1] for info in cursor.fetchall()]
+    
+    if 'generate_audio' not in columns:
+        print("Adding 'generate_audio' column to 'video_generation_task' table...")
+        try:
+            cursor.execute("ALTER TABLE video_generation_task ADD COLUMN generate_audio BOOLEAN DEFAULT 0;")
+            print("'generate_audio' column added successfully.")
+        except sqlite3.Error as e:
+            print(f"Error adding 'generate_audio' column: {e}.")
+    else:
+        print("'generate_audio' column already exists.")
+
 def migrate_data_backfill_user_column(cursor):
     """Backfills the 'user' column with 'public@dreamer-v' for existing tasks where user is NULL."""
     print("Backfilling 'user' column for existing tasks with 'public@dreamer-v'...")
@@ -132,6 +148,7 @@ def setup_database():
         initialize_schema(cursor) 
         migrate_schema_add_user_column(cursor) 
         migrate_schema_add_music_file_path_column(cursor) # Add music_file_path column
+        migrate_schema_add_generate_audio_column(cursor)
         migrate_data_backfill_user_column(cursor) 
         
         conn.commit()

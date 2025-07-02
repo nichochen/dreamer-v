@@ -46,6 +46,7 @@
   "cameraControlLabel": "Control de Cámara",
   "selectOption": "Seleccionar...",
   "videoDurationLabel": "Duración del Video (segundos)",
+  "generateAudioLabel": "Generar Audio",
   "gcsOutputBucketLabel": "Bucket de Salida GCS (Opcional)",
   "gcsOutputBucketPlaceholder": "gs://tu-bucket/ruta",
   "generatingButtonInProgress": "Generando...",

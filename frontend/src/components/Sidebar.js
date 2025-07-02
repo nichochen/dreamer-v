@@ -39,6 +39,8 @@ function Sidebar({
   onDurationChange,
   gcsOutputBucket,
   onGcsOutputBucketChange,
+  generateAudio,
+  onGenerateAudioChange,
   onGenerateClick,
   processingTaskCount,
   activeSpinnerButtonKey,
@@ -349,6 +351,21 @@ function Sidebar({
                   ))
                 }
               </select>
+            </div>
+
+            <div className="form-check form-switch mb-3">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="generateAudioSwitch"
+                checked={generateAudio}
+                onChange={onGenerateAudioChange}
+                disabled={isLoading || isRefining || isGeneratingFirstFrame || isGeneratingLastFrame || !model.startsWith('veo-3.0')}
+              />
+              <label className="form-check-label" htmlFor="generateAudioSwitch">
+                {t('generateAudioLabel')}
+              </label>
             </div>
 
             <div className="mb-3" style={{ display: 'none' }}>

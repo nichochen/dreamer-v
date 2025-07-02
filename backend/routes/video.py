@@ -27,6 +27,7 @@ def generate_video_route():
     camera_control = request.form.get('camera_control', 'FIXED') # Get camera_control
     duration_seconds = int(request.form.get('duration', 5))
     gcs_output_bucket = request.form.get('gcs_output_bucket', None)
+    generate_audio = request.form.get('generateAudio', 'false').lower() == 'true'
 
     user_email = get_processed_user_email_from_header()
 
@@ -59,7 +60,8 @@ def generate_video_route():
         gcs_output_bucket=gcs_output_bucket,
         image_filename=image_filename_to_save,
         last_frame_filename=last_frame_filename_to_save,
-        user=user_email
+        user=user_email,
+        generate_audio=generate_audio
     )
     db.session.add(new_task)
     db.session.commit()

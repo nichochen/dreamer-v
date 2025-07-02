@@ -35,11 +35,12 @@ class GoogleVeo:
         prompt: str,
         parameters: Dict[str, Union[str, int, bool]],
         image_uri: str = "",
-        image_mime_type: str = "image/jpeg", # Default to jpeg
+        image_mime_type: str = "image/jpeg",  # Default to jpeg
         video_uri: str = "",
         last_frame_uri: str = "",
-        last_frame_mime_type: str = "image/jpeg", # Default to jpeg
+        last_frame_mime_type: str = "image/jpeg",  # Default to jpeg
         camera_control: str = "",
+        generate_audio: bool = False,
     ):
         if self.model_name == "veo-3.0-generate-preview":
             if "durationSeconds" in parameters and isinstance(parameters["durationSeconds"], (int, float)) and parameters["durationSeconds"] > 90:
@@ -58,6 +59,10 @@ class GoogleVeo:
         # Only add cameraControl if the model supports it, it's provided, AND it's not a video extension task
         if self.model_name != "veo-2.0-generate-001" and camera_control and not video_uri:
             instance["cameraControl"] = camera_control
+
+        # Add generateAudio to parameters, respecting the default
+        if self.model_name.startswith("veo-3.0"):
+            parameters["generateAudio"] = generate_audio
         request_payload = {"instances": [instance], "parameters": parameters}
         return request_payload
 
@@ -83,6 +88,7 @@ class GoogleVeo:
         last_frame_uri: str = "",
         last_frame_mime_type: str = "image/jpeg",
         camera_control: str = "",
+        generate_audio: bool = False,
     ):
         req = self._compose_videogen_request(
             prompt=prompt,
@@ -93,6 +99,7 @@ class GoogleVeo:
             last_frame_uri=last_frame_uri,
             last_frame_mime_type=last_frame_mime_type,
             camera_control=camera_control,
+            generate_audio=generate_audio,
         )
         print(f"Sending video generation request: {req}")
         resp = self._send_request_to_google_api(self.prediction_endpoint, req)

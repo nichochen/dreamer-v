@@ -24,6 +24,7 @@ class VideoGenerationTask(db.Model):
     video_uri = db.Column(db.String(1024), nullable=True) # User-added: new video_uri attribute
     error_message = db.Column(db.String(1024), nullable=True)
     user = db.Column(db.String(255), nullable=True) # New field for user email
+    generate_audio = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.Float, default=time.time)
     updated_at = db.Column(db.Float, default=time.time, onupdate=time.time)
     music_file_path = db.Column(db.String(1024), nullable=True, default=None) # Path to music file for composite video
@@ -68,6 +69,7 @@ class VideoGenerationTask(db.Model):
             "duration_seconds": self.duration_seconds,
             "gcs_output_bucket": self.gcs_output_bucket,
             "user": self.user,
+            "generate_audio": self.generate_audio,
             "music_file_path": getattr(self, 'music_file_path', None) # Safely access music_file_path
         }
 

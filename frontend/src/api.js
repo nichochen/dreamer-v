@@ -218,6 +218,7 @@ export const handleGenerateClick = async ({
   gcsOutputBucket,
   selectedImage,
   selectedLastImage,
+  generateAudio,
   setIsLoading,
   setErrorMessage,
   setVideoGcsUri,
@@ -259,6 +260,7 @@ export const handleGenerateClick = async ({
     if (selectedLastImage) {
       payload.append('last_frame_file', selectedLastImage);
     }
+    payload.append('generateAudio', generateAudio);
 
     const response = await fetch(`${BACKEND_URL}/generate-video`, {
       method: 'POST',

@@ -46,6 +46,7 @@
   "cameraControlLabel": "カメラ制御",
   "selectOption": "選択...",
   "videoDurationLabel": "ビデオの長さ (秒)",
+  "generateAudioLabel": "音声を生成",
   "gcsOutputBucketLabel": "GCS出力バケット (オプション)",
   "gcsOutputBucketPlaceholder": "gs://your-bucket-name/path",
   "generatingButtonInProgress": "生成中...",

@@ -165,7 +165,8 @@ def _run_video_generation(app, task_id):
                 video_uri=task.video_uri if task.video_uri else "", # Pass video_uri if present
                 last_frame_uri=current_last_frame_gcs_uri if current_last_frame_gcs_uri else "",
                 last_frame_mime_type=current_last_frame_mime_type,
-                camera_control=task.camera_control # Pass camera_control directly
+                camera_control=task.camera_control, # Pass camera_control directly
+                generate_audio=task.generate_audio
             )
 
             # Process the result from GoogleVeo
