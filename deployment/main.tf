@@ -45,6 +45,18 @@ variable "container_image" {
   type        = string
 }
 
+variable "db_password" {
+  description = "The password for the Cloud SQL database user."
+  type        = string
+  sensitive   = true
+}
+
+variable "db_name" {
+  description = "The name of the database."
+  type        = string
+  default     = "dreamer-v"
+}
+
 locals {
   gcs_bucket_name        = "${var.cloud_run_service_name_prefix}-${var.gcs_bucket_name_suffix}-${var.project_id}-${var.user_id}"
   cloud_run_service_name = "${var.cloud_run_service_name_prefix}-${var.project_id}-${var.user_id}"
@@ -63,13 +75,14 @@ resource "google_storage_bucket" "dreamer_v_data" {
 }
 
 resource "google_cloud_run_v2_service" "dreamer_v_service" {
+  depends_on = [google_project_service.cloudrun, google_project_service.iap, google_project_service.sqladmin]
   provider = google-beta
   name     = local.cloud_run_service_name
   location = var.region
   project  = var.project_id
   launch_stage = "BETA"
   iap_enabled = true
-  #invoker_iam_disabled = true
+  invoker_iam_disabled = true
   deletion_protection=false
   lifecycle {
     prevent_destroy = false
@@ -102,9 +115,17 @@ resource "google_cloud_run_v2_service" "dreamer_v_service" {
         name  = "ADMIN_EMAIL"
         value = var.admin_email
       }
+      env {
+        name  = "DATABASE_URI"
+        value = "postgresql+pg8000://postgres:${var.db_password}@/${var.db_name}?unix_sock=/cloudsql/${module.postgresql-db.instance_connection_name}/.s.PGSQL.5432"
+      }
       volume_mounts {
         name       = "gcs-data-volume"
         mount_path = "/app/backend/data"
+      }
+      volume_mounts {
+        name       = "cloudsql"
+        mount_path = "/cloudsql"
       }
     }
 
@@ -113,6 +134,12 @@ resource "google_cloud_run_v2_service" "dreamer_v_service" {
       gcs {
         bucket    = google_storage_bucket.dreamer_v_data.name
         read_only = false
+      }
+    }
+    volumes {
+      name = "cloudsql"
+      cloud_sql_instance {
+        instances = [module.postgresql-db.instance_connection_name]
       }
     }
 
@@ -139,6 +166,14 @@ resource "google_cloud_run_v2_service" "dreamer_v_service" {
   # }
 }
 
+data "google_project" "project" {}
+
+resource "google_project_iam_member" "sql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+}
+
 output "gcs_bucket_name" {
   description = "Name of the GCS bucket created."
   value       = google_storage_bucket.dreamer_v_data.name
@@ -152,4 +187,69 @@ output "cloud_run_service_name" {
 output "cloud_run_service_url" {
   description = "URL of the deployed Cloud Run service."
   value       = google_cloud_run_v2_service.dreamer_v_service.uri
+}
+
+resource "google_project_service" "cloudresourcemanager" {
+  service = "cloudresourcemanager.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "cloudrun" {
+  depends_on = [google_project_service.cloudresourcemanager]
+  service = "run.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "iap" {
+  depends_on = [google_project_service.cloudresourcemanager]
+  service = "iap.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "sqladmin" {
+  depends_on = [google_project_service.cloudresourcemanager]
+  service = "sqladmin.googleapis.com"
+  disable_on_destroy = false
+}
+
+module "postgresql-db" {
+  source  = "terraform-google-modules/sql-db/google//modules/postgresql"
+  version = "~> 26.0"
+
+  name                 = var.db_name
+  random_instance_name = true
+  database_version     = "POSTGRES_17"
+  project_id           = var.project_id
+  zone                 = "${var.region}-a"
+  region               = var.region
+  edition              = "ENTERPRISE"
+  tier                 = "db-f1-micro"
+  data_cache_enabled   = true
+
+  deletion_protection = false
+
+  ip_configuration = {
+    ipv4_enabled        = true
+    private_network     = null
+    ssl_mode            = "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
+    allocated_ip_range  = null
+  }
+}
+
+resource "google_sql_database" "database" {
+  name     = var.db_name
+  instance = module.postgresql-db.instance_name
+  project  = var.project_id
+}
+
+resource "google_sql_user" "db_user" {
+  name     = "postgres"
+  instance = module.postgresql-db.instance_name
+  password = var.db_password
+  project  = var.project_id
+}
+
+output "cloud_sql_instance_name" {
+  description = "Name of the Cloud SQL instance created."
+  value       = module.postgresql-db.instance_name
 }

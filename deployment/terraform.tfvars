@@ -5,3 +5,4 @@ admin_email = "your-email-address"
 container_image = "nicosoft/dreamer-v:latest"
 gcs_bucket_name_suffix = "data" // Suffix for the GCS bucket name
 cloud_run_service_name_prefix = "dreamer-v" // Prefix for the Cloud Run service name
+db_password = "your-super-secret-password"
