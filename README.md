@@ -129,8 +129,17 @@ For a more permanent and scalable setup, deploy Dreamer-V to Cloud Run. This met
    ```bash
    terraform apply
    ```
-7. Update Cloud Run service security setting:
-    * Disable IAM check. Use IAP for authentication.
+
+7. Grant the `IAP-secured Web App User` role to users who need to access the application.
+   ```bash
+   gcloud projects add-iam-policy-binding <YOUR_PROJECT_ID> \
+     --member="user:<USER_EMAIL>" \
+     --role="roles/iap.httpsResourceAccessor"
+   ```
+   Replace `<YOUR_PROJECT_ID>` with your Google Cloud project ID and `<USER_EMAIL>` with the user's email address.
+
+   > **Notice:** The Terraform script enables IAP for Cloud Run, which has a limitation. IAP uses a Google-managed OAuth client to authenticate users, and only users within the same organization can access the IAP-enabled application. If you need to allow access for users outside of your organization, please see [Enable IAP for external users](https://cloud.google.com/iap/docs/custom-oauth-configuration).
+
 
 **Important:** Make sure to enforce access control when deploying on Cloud Run, for example, by using IAP.
 
