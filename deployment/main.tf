@@ -174,6 +174,33 @@ resource "google_project_iam_member" "sql_client" {
   member  = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
 }
 
+resource "google_project_iam_member" "vertex_ai_user" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "vertex_ai_storage_object_user" {
+  project = var.project_id
+  role    = "roles/storage.objectUser"
+  member  = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-aiplatform.iam.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "compute_storage_object_admin" {
+  project = var.project_id
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "iap_invoker" {
+  provider = google-beta
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.dreamer_v_service.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-iap.iam.gserviceaccount.com"
+}
+
 output "gcs_bucket_name" {
   description = "Name of the GCS bucket created."
   value       = google_storage_bucket.dreamer_v_data.name

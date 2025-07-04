@@ -37,35 +37,45 @@ This section guides you through deploying and running Dreamer-V. You can choose 
 
 ### Prerequisites
 
-Before you begin, ensure the following prerequisites are met in your Google Cloud Project:
+Before you begin, you need to set up your Google Cloud Project. You can do this by running the `init_project_setup.sh` script, which will enable the required services and grant the necessary IAM permissions.
 
-**1. Enable Required Services:**
+```bash
+./init_project_setup.sh <YOUR_PROJECT_ID>
+```
+<details>
+<summary>1. Enable Required Services</summary>
 
-Execute the following commands to enable the necessary Google Cloud services:
+Execute the following commands to enable the necessary Google Cloud services. Alternatively, you can run the `init_project_setup.sh` script which will also perform this step.
 ```bash
 gcloud services enable aiplatform.googleapis.com
 gcloud services enable run.googleapis.com
 gcloud services enable iap.googleapis.com
 gcloud services enable compute.googleapis.com
 gcloud services enable storage.googleapis.com
+gcloud services enable sqladmin.googleapis.com
+gcloud services enable cloudresourcemanager.googleapis.com
 ```
+</details>
 
-**2. Grant IAM Permissions:**
+<details>
+<summary>2. Grant IAM Permissions</summary>
 
-Grant the required IAM roles to the respective service accounts and users:
+Grant the required IAM roles to the respective service accounts and users. You can use the `init_project_setup.sh` script to automate this process.
 
 *   **Default Compute Service Account (`PROJECT_NUMBER-compute@developer.gserviceaccount.com`):**
-    *   `roles/storage.objectAdmin` (Storage Object Admin)
+    *   `roles/cloudsql.client` (Cloud SQL Client)
     *   `roles/aiplatform.user` (Vertex AI User)
+    *   `roles/storage.objectAdmin` (Storage Object Admin)
 
 *   **Vertex AI Service Agent (`service-PROJECT_NUMBER@gcp-sa-aiplatform.iam.gserviceaccount.com`):**
-    *   `roles/storage.objectAdmin` (Storage Object Admin)
+    *   `roles/storage.objectUser` (Storage Object User)
+
+*   **IAP Service Agent (`service-PROJECT_NUMBER@gcp-sa-iap.iam.gserviceaccount.com`):**
+    *   `roles/run.invoker` (Cloud Run Invoker)
 
 *   **Users accessing the application:**
     *   `roles/iap.httpsResourceAccessor` (IAP-secured Web App User)
-    *   `roles/run.invoker` (Cloud Run Invoker) - *Needed if IAP is not used or for service-to-service invocation.*
-
-Replace `PROJECT_NUMBER` with your actual Google Cloud project number.
+</details>
 
 ### Option 1: Running in Cloud Shell
 
