@@ -250,7 +250,7 @@ module "postgresql-db" {
   zone                 = "${var.region}-a"
   region               = var.region
   edition              = "ENTERPRISE"
-  tier                 = "db-f1-micro"
+  tier                 = "db-g1-small"
   data_cache_enabled   = true
 
   deletion_protection = false
