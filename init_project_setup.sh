@@ -10,12 +10,15 @@ fi
 PROJECT_ID=$1
 
 echo "Enabling required services for project: $PROJECT_ID"
-gcloud services enable \
-    cloudresourcemanager.googleapis.com \
-    run.googleapis.com \
-    iap.googleapis.com \
-    sqladmin.googleapis.com \
-    aiplatform.googleapis.com \
+gcloud services enable aiplatform.googleapis.com
+gcloud services enable run.googleapis.com
+gcloud services enable iap.googleapis.com
+gcloud services enable compute.googleapis.com
+gcloud services enable storage.googleapis.com
+gcloud services enable sqladmin.googleapis.com
+gcloud services enable cloudresourcemanager.googleapis.com
+
+gcloud beta services identity create --service=aiplatform.googleapis.com \
     --project=$PROJECT_ID
 
 PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
