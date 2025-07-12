@@ -143,6 +143,18 @@ For a more permanent and scalable setup, deploy Dreamer-V to Cloud Run. This met
 
 **Important:** Make sure to enforce access control when deploying on Cloud Run, for example, by using IAP.
 
+## Changelog
+
+*   **Veo 3.0 Support**: Added support for `veo-3.0-fast-generate-preview` (2025-07-12).
+*   **Cloud SQL Backend**: Integrated a Cloud SQL for PostgreSQL database (2025-07-03).
+*   **Automated DB Migrations**: Implemented SQLAlchemy-based automated database migrations (2025-07-02).
+*   **Generate Audio**: Added a "Generate audio" checkbox for the Veo 3.0 model, allowing users to disable audio generation to save costs (2025-07-02).
+*   **Internationalization**: Added Korean language support (2025-06-28).
+*   **Improved UX**: Enhanced the video player and task history UX (2025-06-26).
+*   **Error Handling**: Improved error handling and UI for video generation (2025-06-26).
+*   **Video Playback**: Implemented video track playback and resizing (2025-06-19).
+*   **Cloud Run Deployment**: Added Terraform support for deploying to Cloud Run (2025-06-15).
+
 ## Feedback and Suggestions
 
 Share your thoughts and suggestions.
