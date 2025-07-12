@@ -119,8 +119,8 @@ function Sidebar({
                     className={`nav-link ${activeImageTab === 'last' ? 'active' : ''} ${theme === 'dark' && activeImageTab !== 'last' ? 'text-light' : ''}`}
                     onClick={() => onActiveImageTabChange('last')}
                     type="button"
-                    disabled={model === 'veo-3.0-generate-preview'}
-                    title={model === 'veo-3.0-generate-preview' ? t('lastFrameNotSupportedTooltip') : t('selectLastFrameImageTooltip')}
+                    disabled={model.startsWith('veo-3.0')}
+                    title={model.startsWith('veo-3.0') ? t('lastFrameNotSupportedTooltip') : t('selectLastFrameImageTooltip')}
                   >
                     <i className="bi bi-image-alt me-1"></i> {t('lastFrameTab')}
                   </button>
@@ -227,7 +227,7 @@ function Sidebar({
                           onClick={() => lastFileInputRef.current && lastFileInputRef.current.click()}
                           title={t('uploadLastFrameImageButtonTitle')}
                           style={{ fontSize: '1.5rem' }}
-                          disabled={model === 'veo-3.0-generate-preview'}
+                          disabled={model.startsWith('veo-3.0')}
                         >
                           <i className="bi bi-upload"></i>
                         </button>
@@ -237,7 +237,7 @@ function Sidebar({
                           onClick={() => onPasteFromClipboard('last')}
                           title={t('pasteLastFrameImageFromClipboardButtonTitle')}
                           style={{ fontSize: '1.5rem' }}
-                          disabled={model === 'veo-3.0-generate-preview' || isLoading || isRefining || isGeneratingLastFrame}
+                          disabled={model.startsWith('veo-3.0') || isLoading || isRefining || isGeneratingLastFrame}
                         >
                           <i className="bi bi-clipboard-plus"></i>
                         </button>
@@ -247,7 +247,7 @@ function Sidebar({
                           onClick={onGenerateLastFrameImage}
                           title={t('generateLastFrameButtonTitle')}
                           style={{ fontSize: '1.5rem' }}
-                          disabled={model === 'veo-3.0-generate-preview' || isLoading || isRefining || isGeneratingLastFrame}
+                          disabled={model.startsWith('veo-3.0') || isLoading || isRefining || isGeneratingLastFrame}
                         >
                           {isGeneratingLastFrame ? (
                             <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -265,10 +265,10 @@ function Sidebar({
                     id="lastImageUploadSidebar" // Changed ID
                     accept="image/*"
                     onChange={onLastImageChange}
-                    disabled={isLoading || model === 'veo-3.0-generate-preview' || isGeneratingFirstFrame || isGeneratingLastFrame}
+                    disabled={isLoading || model.startsWith('veo-3.0') || isGeneratingFirstFrame || isGeneratingLastFrame}
                     style={{ display: 'none' }}
                   />
-                  {model === 'veo-3.0-generate-preview' && (
+                  {model.startsWith('veo-3.0') && (
                     <p className="form-text text-muted small">
                       {t('lastFrameNotSupportedMessage')}
                     </p>
@@ -289,6 +289,7 @@ function Sidebar({
                 <option value="veo-2.0-generate-001">veo-2.0-generate-001</option>
                 <option value="veo-2.0-generate-exp">veo-2.0-generate-exp</option>
                 <option value="veo-3.0-generate-preview">veo-3.0-generate-preview</option>
+                <option value="veo-3.0-fast-generate-preview">veo-3.0-fast-generate-preview</option>
               </select>
             </div>
 
@@ -302,9 +303,9 @@ function Sidebar({
                 disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
               >
                 <option value="16:9">{t('aspectRatio16x9')}</option>
-                <option value="9:16" disabled={model === 'veo-3.0-generate-preview'}>{t('aspectRatio9x16')}{model === 'veo-3.0-generate-preview' ? t('notSupportedSuffix') : ''}</option>
+                <option value="9:16" disabled={model.startsWith('veo-3.0')}>{t('aspectRatio9x16')}{model.startsWith('veo-3.0') ? t('notSupportedSuffix') : ''}</option>
               </select>
-              {model === 'veo-3.0-generate-preview' && ratio === '9:16' && (
+              {model.startsWith('veo-3.0') && ratio === '9:16' && (
                 <p className="form-text text-warning small">
                   {t('aspectRatio9x16Warning')}
                 </p>
@@ -344,7 +345,7 @@ function Sidebar({
                 onChange={(e) => onDurationChange(parseInt(e.target.value, 10))}
                 disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
               >
-                {(model === 'veo-3.0-generate-preview' || model === 'veo-2.0-generate-exp')
+                {(model.startsWith('veo-3.0') || model === 'veo-2.0-generate-exp')
                   ? <option value={8}>8s</option>
                   : [5, 6, 7, 8].map((d) => (
                     <option key={d} value={d}>{d}s</option>

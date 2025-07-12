@@ -42,7 +42,7 @@ class GoogleVeo:
         camera_control: str = "",
         generate_audio: bool = False,
     ):
-        if self.model_name == "veo-3.0-generate-preview":
+        if self.model_name.startswith("veo-3.0"):
             if "durationSeconds" in parameters and isinstance(parameters["durationSeconds"], (int, float)) and parameters["durationSeconds"] > 90:
                 raise ValueError(
                     f"For model '{self.model_name}', 'durationSeconds' cannot exceed 90. "
