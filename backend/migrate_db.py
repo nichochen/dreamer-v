@@ -113,7 +113,8 @@ def copy_sqlite_to_postgres(sqlite_uri, postgres_uri, force=False):
                 generate_audio=old_task.generate_audio,
                 created_at=old_task.created_at,
                 updated_at=old_task.updated_at,
-                music_file_path=old_task.music_file_path
+                music_file_path=old_task.music_file_path,
+                resolution=old_task.resolution
             )
             postgres_session.add(new_task)
         
@@ -148,6 +149,7 @@ def setup_database():
         # Using VARCHAR for user as it's defined in the model.
         migrate_schema_add_column(engine, 'video_generation_task', 'user', 'VARCHAR(255)')
         migrate_schema_add_column(engine, 'video_generation_task', 'music_file_path', 'VARCHAR(1024)')
+        migrate_schema_add_column(engine, 'video_generation_task', 'resolution', 'VARCHAR(10)')
         
         # For boolean, the type can be tricky. BOOLEAN is standard SQL.
         # SQLite will use INTEGER 0/1, PostgreSQL will use true/false.

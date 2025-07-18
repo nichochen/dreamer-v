@@ -37,6 +37,8 @@ function Sidebar({
   onCameraControlChange,
   duration,
   onDurationChange,
+  resolution,
+  onResolutionChange,
   gcsOutputBucket,
   onGcsOutputBucketChange,
   generateAudio,
@@ -285,73 +287,89 @@ function Sidebar({
                 value={model}
                 onChange={(e) => onModelChange(e.target.value)}
                 disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
-              >
-                <option value="veo-2.0-generate-001">veo-2.0-generate-001</option>
-                <option value="veo-2.0-generate-exp">veo-2.0-generate-exp</option>
+              >          
                 <option value="veo-3.0-generate-preview">veo-3.0-generate-preview</option>
                 <option value="veo-3.0-fast-generate-preview">veo-3.0-fast-generate-preview</option>
+                <option value="veo-2.0-generate-001">veo-2.0-generate-001</option>
+                <option value="veo-2.0-generate-exp">veo-2.0-generate-exp</option>
               </select>
             </div>
 
-            <div className="mb-3">
-              <label htmlFor="ratioSelectSidebar" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-aspect-ratio me-2"></i>{t('aspectRatioLabel')}</label>
-              <select
-                id="ratioSelectSidebar" // Changed ID
-                className="form-select"
-                value={ratio}
-                onChange={(e) => onRatioChange(e.target.value)}
-                disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
-              >
-                <option value="16:9">{t('aspectRatio16x9')}</option>
-                <option value="9:16" disabled={model.startsWith('veo-3.0')}>{t('aspectRatio9x16')}{model.startsWith('veo-3.0') ? t('notSupportedSuffix') : ''}</option>
-              </select>
-              {model.startsWith('veo-3.0') && ratio === '9:16' && (
-                <p className="form-text text-warning small">
-                  {t('aspectRatio9x16Warning')}
-                </p>
-              )}
+            <div className="d-flex gap-2 mb-3">
+              <div className="w-50">
+                <label htmlFor="ratioSelectSidebar" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-aspect-ratio me-2"></i>{t('aspectRatioLabel')}</label>
+                <select
+                  id="ratioSelectSidebar" // Changed ID
+                  className="form-select"
+                  value={ratio}
+                  onChange={(e) => onRatioChange(e.target.value)}
+                  disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
+                >
+                  <option value="16:9">{t('aspectRatio16x9')}</option>
+                  <option value="9:16" disabled={model.startsWith('veo-3.0')}>{t('aspectRatio9x16')}{model.startsWith('veo-3.0') ? t('notSupportedSuffix') : ''}</option>
+                </select>
+                {model.startsWith('veo-3.0') && ratio === '9:16' && (
+                  <p className="form-text text-warning small">
+                    {t('aspectRatio9x16Warning')}
+                  </p>
+                )}
+              </div>
+              <div className="w-50">
+                <label htmlFor="cameraControlSelectSidebar" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-camera-video me-2"></i>{t('cameraControlLabel')}</label>
+                <select
+                  id="cameraControlSelectSidebar" // Changed ID
+                  className="form-select"
+                  value={cameraControl}
+                  onChange={(e) => onCameraControlChange(e.target.value)}
+                  disabled={isLoading || model !== 'veo-2.0-generate-exp' || isGeneratingFirstFrame || isGeneratingLastFrame}
+                >
+                  <option value="">{t('selectOption')}</option>
+                  <option value="FIXED">FIXED</option>
+                  <option value="PAN_LEFT">PAN_LEFT</option>
+                  <option value="PAN_RIGHT">PAN_RIGHT</option>
+                  <option value="PULL_OUT">PULL_OUT</option>
+                  <option value="PEDESTAL_DOWN">PEDESTAL_DOWN</option>
+                  <option value="PUSH_IN">PUSH_IN</option>
+                  <option value="TRUCK_LEFT">TRUCK_LEFT</option>
+                  <option value="TRUCK_RIGHT">TRUCK_RIGHT</option>
+                  <option value="PEDESTAL_UP">PEDESTAL_UP</option>
+                  <option value="TILT_DOWN">TILT_DOWN</option>
+                  <option value="TILT_UP">TILT_UP</option>
+                </select>
+              </div>
             </div>
 
-            <div className="mb-3">
-              <label htmlFor="cameraControlSelectSidebar" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-camera-video me-2"></i>{t('cameraControlLabel')}</label>
-              <select
-                id="cameraControlSelectSidebar" // Changed ID
-                className="form-select"
-                value={cameraControl}
-                onChange={(e) => onCameraControlChange(e.target.value)}
-                disabled={isLoading || model !== 'veo-2.0-generate-exp' || isGeneratingFirstFrame || isGeneratingLastFrame}
-              >
-                <option value="">{t('selectOption')}</option>
-                <option value="FIXED">FIXED</option>
-                <option value="PAN_LEFT">PAN_LEFT</option>
-                <option value="PAN_RIGHT">PAN_RIGHT</option>
-                <option value="PULL_OUT">PULL_OUT</option>
-                <option value="PEDESTAL_DOWN">PEDESTAL_DOWN</option>
-                <option value="PUSH_IN">PUSH_IN</option>
-                <option value="TRUCK_LEFT">TRUCK_LEFT</option>
-                <option value="TRUCK_RIGHT">TRUCK_RIGHT</option>
-                <option value="PEDESTAL_UP">PEDESTAL_UP</option>
-                <option value="TILT_DOWN">TILT_DOWN</option>
-                <option value="TILT_UP">TILT_UP</option>
-              </select>
-            </div>
-
-            <div className="mb-3">
-              <label htmlFor="durationSelectSidebar" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-clock me-2"></i>{t('videoDurationLabel')}</label>
-              <select
-                id="durationSelectSidebar" // Changed ID
-                className="form-select"
-                value={duration}
-                onChange={(e) => onDurationChange(parseInt(e.target.value, 10))}
-                disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
-              >
-                {(model.startsWith('veo-3.0') || model === 'veo-2.0-generate-exp')
-                  ? <option value={8}>8s</option>
-                  : [5, 6, 7, 8].map((d) => (
-                    <option key={d} value={d}>{d}s</option>
-                  ))
-                }
-              </select>
+            <div className="d-flex gap-2 mb-3">
+              <div className="w-50">
+                <label htmlFor="durationSelectSidebar" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-clock me-2"></i>{t('videoDurationLabel')}</label>
+                <select
+                  id="durationSelectSidebar" // Changed ID
+                  className="form-select"
+                  value={duration}
+                  onChange={(e) => onDurationChange(parseInt(e.target.value, 10))}
+                  disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
+                >
+                  {(model.startsWith('veo-3.0') || model === 'veo-2.0-generate-exp')
+                    ? <option value={8}>8s</option>
+                    : [5, 6, 7, 8].map((d) => (
+                      <option key={d} value={d}>{d}s</option>
+                    ))
+                  }
+                </select>
+              </div>
+              <div className="w-50">
+                <label htmlFor="resolutionSelectSidebar" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-aspect-ratio me-2"></i>{t('resolutionLabel')}</label>
+                <select
+                  id="resolutionSelectSidebar"
+                  className="form-select"
+                  value={resolution}
+                  onChange={(e) => onResolutionChange(e.target.value)}
+                  disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame || !model.startsWith('veo-3.0')}
+                >
+                  <option value="720p">720p</option>
+                  <option value="1080p">1080p</option>
+                </select>
+              </div>
             </div>
 
             <div className="form-check form-switch mb-3">

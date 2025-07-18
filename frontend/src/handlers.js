@@ -184,6 +184,7 @@ export const handleHistoryItemClick = async ({
   setRatio,
   setCameraControl,
   setDuration,
+  setResolution,
   setGcsOutputBucket,
   setTaskId,
   setVideoGcsUri,
@@ -259,6 +260,7 @@ export const handleHistoryItemClick = async ({
       setCameraControl('');
     }
     setDuration(task.duration_seconds || 5);
+    setResolution(task.resolution || '');
     setGcsOutputBucket(task.gcs_output_bucket || '');
     setTaskId(task.task_id);
     setVideoGcsUri(task.local_video_path ? `${BACKEND_URL}${task.local_video_path}` : '');

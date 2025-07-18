@@ -41,6 +41,7 @@ function App() {
   const [ratio, setRatio] = useState('16:9'); // Default ratio
   const [cameraControl, setCameraControl] = useState(''); // Default camera control
   const [duration, setDuration] = useState(5); // Default duration in seconds, changed to 5
+  const [resolution, setResolution] = useState('720p'); // Default resolution
   const [gcsOutputBucket, setGcsOutputBucket] = useState(''); // GCS output bucket
   const [generateAudio, setGenerateAudio] = useState(false);
   const [theme, setTheme] = useState('dark'); // 'light' or 'dark' - Defaulted to dark
@@ -274,9 +275,8 @@ function App() {
       }
     }
 
-    // New logic for veo-3.0-generate-preview limitations
-    const VEO_3_PREVIEW_MODEL = 'veo-3.0-generate-preview';
-    if (model === VEO_3_PREVIEW_MODEL) {
+    // New logic for veo-3.0 models limitations
+    if (model.startsWith('veo-3.0')) {
       // Limitation: No last frame image
       if (selectedLastImage) {
         // Assuming clearLastImagePreview is stable and correctly clears state
@@ -292,6 +292,8 @@ function App() {
       if (ratio === '9:16') {
         setRatio('16:9'); // Default to 16:9
       }
+    } else {
+      setResolution('720p');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, duration, selectedLastImage, ratio, activeImageTab, setCameraControl, setDuration, setRatio, setActiveImageTab]); // Added setters to dependency array as per exhaustive-deps, clearLastImagePreview is defined in scope
@@ -430,13 +432,13 @@ function App() {
       getTasks: memoizedFetchHistoryTasks, // Use memoized version
       setTaskStatus, setVideoGcsUri, setErrorMessage, setPollingIntervalId,
       setCompletedUriPollRetries, setPrompt, setModel, setRatio,
-      setCameraControl, setDuration, setGcsOutputBucket, t,
+      setCameraControl, setDuration, setResolution, setGcsOutputBucket, t,
     });
   }, [
     taskId, taskStatus, pollingIntervalId, completedUriPollRetries, memoizedFetchHistoryTasks,
     setTaskStatus, setVideoGcsUri, setErrorMessage, setPollingIntervalId,
     setCompletedUriPollRetries, setPrompt, setModel, setRatio,
-    setCameraControl, setDuration, setGcsOutputBucket, t
+    setCameraControl, setDuration, setResolution, setGcsOutputBucket, t
   ]);
 
   // Poll for Video Task Status
@@ -620,7 +622,7 @@ function App() {
   const doClearLastImagePreview = () => Handlers.clearLastImagePreview(setSelectedLastImage, setLastImagePreview, lastFileInputRef);
 
   const doHandleGenerateClick = () => Api.handleGenerateClick({
-    prompt, model, ratio, cameraControl, duration, gcsOutputBucket, selectedImage, selectedLastImage, generateAudio,
+    prompt, model, ratio, cameraControl, duration, gcsOutputBucket, selectedImage, selectedLastImage, generateAudio, resolution,
     setIsLoading, setErrorMessage, setVideoGcsUri, setTaskStatus, setCompletedUriPollRetries,
     pollingIntervalId, setPollingIntervalId, setTaskId, getTasks: memoizedFetchHistoryTasks, t,
   });
@@ -630,7 +632,7 @@ function App() {
     Handlers.handleHistoryItemClick({
       task, activeView, pollingIntervalId, setPollingIntervalId, setCompletedUriPollRetries,
       setCreateModeClips, setActiveCreateModeVideoSrc, setSelectedClipInTrack,
-    setPrompt, setModel, setRatio, setCameraControl, setDuration, setGcsOutputBucket,
+    setPrompt, setModel, setRatio, setCameraControl, setDuration, setResolution, setGcsOutputBucket,
     setTaskId, setVideoGcsUri, setTaskStatus, setErrorMessage, setIsLoading,
     setSelectedImage, setImagePreview, setSelectedLastImage, setLastImagePreview, t,
   });
@@ -811,6 +813,8 @@ function App() {
               onCameraControlChange={setCameraControl}
               duration={duration}
               onDurationChange={setDuration}
+              resolution={resolution}
+              onResolutionChange={setResolution}
               gcsOutputBucket={gcsOutputBucket}
               onGcsOutputBucketChange={setGcsOutputBucket}
               generateAudio={generateAudio}

@@ -26,6 +26,7 @@ def generate_video_route():
     aspect_ratio = request.form.get('ratio', '16:9')
     camera_control = request.form.get('camera_control', 'FIXED') # Get camera_control
     duration_seconds = int(request.form.get('duration', 5))
+    resolution = request.form.get('resolution', None)
     gcs_output_bucket = request.form.get('gcs_output_bucket', None)
     generate_audio = request.form.get('generateAudio', 'false').lower() == 'true'
 
@@ -57,6 +58,7 @@ def generate_video_route():
         aspect_ratio=aspect_ratio,
         camera_control=camera_control, # Save camera_control
         duration_seconds=duration_seconds,
+        resolution=resolution,
         gcs_output_bucket=gcs_output_bucket,
         image_filename=image_filename_to_save,
         last_frame_filename=last_frame_filename_to_save,

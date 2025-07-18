@@ -219,6 +219,7 @@ export const handleGenerateClick = async ({
   selectedImage,
   selectedLastImage,
   generateAudio,
+  resolution,
   setIsLoading,
   setErrorMessage,
   setVideoGcsUri,
@@ -261,6 +262,9 @@ export const handleGenerateClick = async ({
       payload.append('last_frame_file', selectedLastImage);
     }
     payload.append('generateAudio', generateAudio);
+    if (resolution) {
+      payload.append('resolution', resolution);
+    }
 
     const response = await fetch(`${BACKEND_URL}/generate-video`, {
       method: 'POST',
@@ -298,6 +302,7 @@ export const pollTaskStatus = async ({
   setRatio,
   setCameraControl,
   setDuration,
+  setResolution,
   setGcsOutputBucket,
   t,
 }) => {
@@ -371,6 +376,7 @@ export const pollTaskStatus = async ({
       setRatio(data.aspect_ratio || '16:9');
       setCameraControl(data.camera_control || 'FIXED');
       setDuration(data.duration_seconds || 5);
+      setResolution(data.resolution || '');
       setGcsOutputBucket(data.gcs_output_bucket || '');
     }
 

@@ -41,6 +41,7 @@ class GoogleVeo:
         last_frame_mime_type: str = "image/jpeg",  # Default to jpeg
         camera_control: str = "",
         generate_audio: bool = False,
+        resolution: Optional[str] = None,
     ):
         if self.model_name.startswith("veo-3.0"):
             if "durationSeconds" in parameters and isinstance(parameters["durationSeconds"], (int, float)) and parameters["durationSeconds"] > 90:
@@ -48,6 +49,13 @@ class GoogleVeo:
                     f"For model '{self.model_name}', 'durationSeconds' cannot exceed 90. "
                     f"Received: {parameters['durationSeconds']}"
                 )
+            if resolution:
+                if resolution not in ["720p", "1080p"]:
+                    raise ValueError(
+                        f"For model '{self.model_name}', 'resolution' must be '720p' or '1080p'. "
+                        f"Received: {resolution}"
+                    )
+                parameters["resolution"] = resolution
 
         instance = {"prompt": prompt}
         if image_uri:
@@ -89,6 +97,7 @@ class GoogleVeo:
         last_frame_mime_type: str = "image/jpeg",
         camera_control: str = "",
         generate_audio: bool = False,
+        resolution: Optional[str] = None,
     ):
         req = self._compose_videogen_request(
             prompt=prompt,
@@ -100,6 +109,7 @@ class GoogleVeo:
             last_frame_mime_type=last_frame_mime_type,
             camera_control=camera_control,
             generate_audio=generate_audio,
+            resolution=resolution,
         )
         print(f"Sending video generation request: {req}")
         resp = self._send_request_to_google_api(self.prediction_endpoint, req)

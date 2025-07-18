@@ -12,6 +12,7 @@ class VideoGenerationTask(db.Model):
     aspect_ratio = db.Column(db.String(10), default="16:9")
     camera_control = db.Column(db.String(50), default="FIXED") # New field for camera control
     duration_seconds = db.Column(db.Integer, default=5)
+    resolution = db.Column(db.String(10), nullable=True)
     gcs_output_bucket = db.Column(db.String(1024), nullable=True) # New field for GCS bucket (optional)
     status = db.Column(db.String(50), default="pending")  # pending, processing, completed, failed
     video_gcs_uri = db.Column(db.String(1024), nullable=True) # GCS URI or HTTPS URL
@@ -67,6 +68,7 @@ class VideoGenerationTask(db.Model):
             "updated_at": self.updated_at,
             "aspect_ratio": self.aspect_ratio,
             "duration_seconds": self.duration_seconds,
+            "resolution": self.resolution,
             "gcs_output_bucket": self.gcs_output_bucket,
             "user": self.user,
             "generate_audio": self.generate_audio,
