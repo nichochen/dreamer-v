@@ -145,6 +145,7 @@ For a more permanent and scalable setup, deploy Dreamer-V to Cloud Run. This met
 
 ## Changelog
 
+*   **Usage Analysis**: Implemented usage analysis feature (2025-07-27).
 *   **1080p Support**: Added support for 1080p resolution for Veo 3.0 models (2025-07-18).
 *   **Veo 3.0 Support**: Added support for `veo-3.0-fast-generate-preview` (2025-07-12).
 *   **Cloud SQL Backend**: Integrated a Cloud SQL for PostgreSQL database (2025-07-03).
