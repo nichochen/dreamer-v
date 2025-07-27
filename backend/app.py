@@ -7,6 +7,7 @@ from routes.music import music_bp
 from routes.image import image_bp
 from routes.task_management import task_management_bp
 from routes.utility import utility_bp
+from routes.usage import usage_bp
 
 def create_app():
     app = Flask(__name__)
@@ -22,6 +23,7 @@ def create_app():
     app.register_blueprint(image_bp)
     app.register_blueprint(task_management_bp)
     app.register_blueprint(utility_bp)
+    app.register_blueprint(usage_bp)
 
     with app.app_context():
         db.create_all()

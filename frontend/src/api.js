@@ -10,6 +10,17 @@ import {
   STATUS_COMPLETED_WAITING_URI,
 } from './constants';
 
+export const getAuthHeaders = () => {
+  const email = localStorage.getItem('userEmail');
+  const token = localStorage.getItem('googleIdToken');
+  const headers = {};
+  if (email && token) {
+    headers['X-Goog-Authenticated-User-Email'] = email;
+    headers['X-Goog-IAP-JWT-Assertion'] = token;
+  }
+  return headers;
+};
+
 export const checkBackendHealth = async (setIsBackendReady, t) => {
   try {
     const response = await fetch(HEALTH_CHECK_URL);
@@ -725,5 +736,20 @@ export const updateTaskStatus = async (taskId, status, errorMessage) => {
     }
   } catch (error) {
     console.error(`Error updating task ${taskId} status:`, error);
+  }
+};
+
+export const getUsageData = async () => {
+  try {
+    const response = await fetch(`${BACKEND_URL}/usage`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch usage data');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching usage data:', error);
+    throw error;
   }
 };

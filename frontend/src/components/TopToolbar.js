@@ -12,6 +12,7 @@ function TopToolbar({
   t,
   activeView, // New prop
   setActiveView, // New prop
+  onUsageAnalysisClick,
 }) {
   return (
     <div className={`top-toolbar ${theme === 'dark' ? 'bg-dark text-light' : 'bg-light text-dark'}`}>
@@ -29,6 +30,13 @@ function TopToolbar({
           {showUserDropdown && (
             <ul className={`dropdown-menu dropdown-menu-start show ${theme === 'dark' ? 'dropdown-menu-dark' : ''}`} style={{ position: 'absolute', inset: '0px auto auto 0px', margin: '0px', transform: 'translate(0px, 30px)', minWidth: '250px' }}> {/* Changed to dropdown-menu-start */}
               <li><span className="dropdown-item-text">{userEmail}</span></li>
+              <li><hr className="dropdown-divider" /></li>
+              <li>
+                <button className="dropdown-item" type="button" onClick={onUsageAnalysisClick}>
+                  <i className="bi bi-bar-chart-line-fill me-2"></i>
+                  {t('usageAnalysis')}
+                </button>
+              </li>
             </ul>
           )}
         </div>

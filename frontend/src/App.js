@@ -21,6 +21,7 @@ import ImageModal from './components/ImageModal';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
 import HistorySidebar from './components/HistorySidebar';
+import UsageAnalysisModal from './components/UsageAnalysisModal';
 
 function App() {
   const { t, i18n } = useTranslation();
@@ -51,6 +52,7 @@ function App() {
   const [startHeight, setStartHeight] = useState(0);
   const [userEmail, setUserEmail] = useState(''); // New state for user email
   const [showUserDropdown, setShowUserDropdown] = useState(false); // New state for user dropdown visibility
+  const [showUsageAnalysisModal, setShowUsageAnalysisModal] = useState(false);
 
   const [taskId, setTaskId] = useState(null);
   const [taskStatus, setTaskStatus] = useState('');
@@ -773,6 +775,7 @@ function App() {
             t={t}
             activeView={activeView} // Pass to TopToolbar
             setActiveView={setActiveView} // Pass to TopToolbar
+            onUsageAnalysisClick={() => setShowUsageAnalysisModal(true)}
           />
 
           <div className="app-body d-flex flex-grow-1">
@@ -897,6 +900,13 @@ function App() {
         showModal={showImageModal}
         setShowModal={setShowImageModal}
         imageUrl={modalImageUrl}
+        t={t}
+      />
+
+      <UsageAnalysisModal
+        show={showUsageAnalysisModal}
+        onHide={() => setShowUsageAnalysisModal(false)}
+        theme={theme}
         t={t}
       />
         </div>
