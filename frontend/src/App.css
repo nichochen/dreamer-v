@@ -397,13 +397,13 @@ body {
 .top-toolbar {
   padding: 0.25rem 1rem; /* Thin padding */
   background-color: var(--bs-tertiary-bg); /* Subtle background, theme-aware */
-  border-bottom: 1px solid var(--bs-border-color-translucent); /* Subtle border */
   display: flex;
   justify-content: flex-end; /* Align items to the right */
   align-items: center;
   width: 100%;
   height: 40px; /* Fixed thin height */
   box-sizing: border-box;
+  margin-top: 10px;
 }
 
 .top-toolbar .dropdown,
