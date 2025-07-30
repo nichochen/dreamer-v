@@ -12,7 +12,7 @@ LOCATION = os.getenv("GCP_REGION") # Assuming GCP_REGION is used for LOCATION
 DEFAULT_OUTPUT_GCS_BUCKET = os.getenv("VIDEO_GCS_BUCKET")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "NO-ADMIN-EMAIL-SET")
 DEFAULT_IMAGEN_MODEL_ID = os.getenv("DEFAULT_IMAGEN_MODEL_ID", "imagen-4.0-generate-preview-06-06")
-DEFAULT_VIDEO_MODEL_ID = os.getenv("DEFAULT_VIDEO_MODEL_ID", "veo-2.0-generate-001")
+DEFAULT_VIDEO_MODEL_ID = os.getenv("DEFAULT_VIDEO_MODEL_ID", "veo-3.0-generate-001")
 DATABASE_URI = os.getenv("DATABASE_URI", f'sqlite:///{os.path.join(os.path.dirname(__file__), "data", "tasks.db")}')
 
 # --- Directory Configuration ---

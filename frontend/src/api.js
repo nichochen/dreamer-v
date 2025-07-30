@@ -383,7 +383,7 @@ export const pollTaskStatus = async ({
 
     if (finalTaskStatusToSet === STATUS_COMPLETED || finalTaskStatusToSet === STATUS_FAILED) {
       setPrompt(data.prompt);
-      setModel(data.model || 'veo-2.0-generate-001');
+      setModel(data.model || 'veo-3.0-generate-001');
       setRatio(data.aspect_ratio || '16:9');
       setCameraControl(data.camera_control || 'FIXED');
       setDuration(data.duration_seconds || 5);
@@ -452,7 +452,7 @@ export const handleDeleteTask = async ({
     
     if (taskId === idToDelete && activeView === 'dream') {
       setPrompt('');
-      setModel('veo-2.0-generate-001');
+      setModel('veo-3.0-generate-001');
       setRatio('16:9');
       setCameraControl('FIXED');
       setDuration(5);

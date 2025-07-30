@@ -288,8 +288,8 @@ function Sidebar({
                 onChange={(e) => onModelChange(e.target.value)}
                 disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
               >          
-                <option value="veo-3.0-generate-preview">veo-3.0-generate-preview</option>
-                <option value="veo-3.0-fast-generate-preview">veo-3.0-fast-generate-preview</option>
+                <option value="veo-3.0-generate-001">veo-3.0-generate-001</option>
+                <option value="veo-3.0-fast-generate-001">veo-3.0-fast-generate-001</option>
                 <option value="veo-2.0-generate-001">veo-2.0-generate-001</option>
                 <option value="veo-2.0-generate-exp">veo-2.0-generate-exp</option>
               </select>

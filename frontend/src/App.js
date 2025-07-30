@@ -38,7 +38,7 @@ function App() {
   const [lastImagePreview, setLastImagePreview] = useState(''); // New state for last frame image preview
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalImageUrl, setModalImageUrl] = useState('');
-  const [model, setModel] = useState('veo-2.0-generate-001'); // Default model
+  const [model, setModel] = useState('veo-3.0-generate-001'); // Default model
   const [ratio, setRatio] = useState('16:9'); // Default ratio
   const [cameraControl, setCameraControl] = useState(''); // Default camera control
   const [duration, setDuration] = useState(5); // Default duration in seconds, changed to 5
@@ -267,7 +267,7 @@ function App() {
     if (model !== 'veo-2.0-generate-exp') {
       setCameraControl(''); // Reset to default if model does not support camera control
     }
-    if (model === 'veo-3.0-generate-preview' || model === 'veo-2.0-generate-exp') {
+    if (model === 'veo-3.0-generate-001' || model === 'veo-2.0-generate-exp') {
       if (duration !== 8) {
         setDuration(8);
       }

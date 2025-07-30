@@ -33,7 +33,7 @@ def _run_video_generation(app, task_id):
             # Model specific checks based on user feedback
             # User feedback: "veo-3.0-generate-preview dosen't support lart frame image and 9:16 ratio"
             # Assuming "lart frame" means "last frame"
-            TARGET_MODEL_FOR_CHECKS = "veo-3.0-generate-preview" # Or the correct model name if this is a typo
+            TARGET_MODEL_FOR_CHECKS = "veo-3.0-generate-001" # Or the correct model name if this is a typo
 
             if task.model == TARGET_MODEL_FOR_CHECKS:
                 if task.last_frame_filename:

@@ -7,7 +7,7 @@ from typing import Optional, Union, Dict # Added for Python 3.9 compatibility
 from google_auth import get_access_token
 
 class GoogleVeo:
-    def __init__(self, project_id: str, model_name: str = "veo-2.0-generate-001"): # Default if not provided
+    def __init__(self, project_id: str, model_name: str = "veo-3.0-generate-001"): # Default if not provided
         self.project_id = project_id
         self.model_name = model_name
         # Construct endpoints dynamically based on the model_name
@@ -65,7 +65,7 @@ class GoogleVeo:
         if last_frame_uri:
             instance["lastFrame"] = {"gcsUri": last_frame_uri, "mimeType": last_frame_mime_type}
         # Only add cameraControl if the model supports it, it's provided, AND it's not a video extension task
-        if self.model_name != "veo-2.0-generate-001" and camera_control and not video_uri:
+        if self.model_name != "veo-3.0-generate-001" and camera_control and not video_uri:
             instance["cameraControl"] = camera_control
 
         # Add generateAudio to parameters, respecting the default
