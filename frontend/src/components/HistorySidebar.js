@@ -113,7 +113,7 @@ function HistorySidebar({
                       </div>
                     ) : (task.status === STATUS_PROCESSING || task.status === STATUS_PENDING || task.status === STATUS_INITIALIZING || task.status === STATUS_COMPLETED_WAITING_URI) ? (
                       <div className={`thumbnail-container position-relative mb-2 ${isCurrentDreamTask || isSelectedInCreateTrack ? 'selected-thumbnail-custom-border' : ''}`} title={t('videoTrackHeadIconTitle', "Start of video track")}>
-                        <img src="/gears.gif" alt={t('statusIconAlt', "Status icon")} style={{ width: '80px', height: '80px', borderRadius: '8px' }} />
+                        <img src="/gears.gif" alt={t('statusIconAlt', "Status icon")} style={{ width: '80px', height: '80px', borderRadius: '4px' }} />
                       </div>
                     ) : task.status === STATUS_FAILED || task.status === STATUS_ERROR ? (
                       <div className={`thumbnail-container position-relative mb-2 ${isCurrentDreamTask || isSelectedInCreateTrack ? 'selected-thumbnail-custom-border' : ''}`}>
