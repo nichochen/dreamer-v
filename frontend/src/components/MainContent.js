@@ -620,7 +620,7 @@ function MainContent({
             </div>
           </div>
           {taskId && activeView === 'dream' && (
-            <div className="card mt-3">
+            <div className="card mt-3 border-0">
               <div className="card-body">
                 {activeView === 'dream' && (
                 <div
