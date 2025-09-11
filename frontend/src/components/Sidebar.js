@@ -306,13 +306,8 @@ function Sidebar({
                   disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
                 >
                   <option value="16:9">{t('aspectRatio16x9')}</option>
-                  <option value="9:16" disabled={model.startsWith('veo-3.0')}>{t('aspectRatio9x16')}{model.startsWith('veo-3.0') ? t('notSupportedSuffix') : ''}</option>
+                  <option value="9:16">{t('aspectRatio9x16')}</option>
                 </select>
-                {model.startsWith('veo-3.0') && ratio === '9:16' && (
-                  <p className="form-text text-warning small">
-                    {t('aspectRatio9x16Warning')}
-                  </p>
-                )}
               </div>
               <div className="w-50">
                 <label htmlFor="cameraControlSelectSidebar" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-camera-video me-2"></i>{t('cameraControlLabel')}</label>

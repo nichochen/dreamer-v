@@ -290,10 +290,7 @@ function App() {
         setActiveImageTab('first');
       }
 
-      // Limitation: No 9:16 aspect ratio
-      if (ratio === '9:16') {
-        setRatio('16:9'); // Default to 16:9
-      }
+      // Note: 9:16 aspect ratio is now supported for veo-3.0 models
     } else {
       setResolution('720p');
     }

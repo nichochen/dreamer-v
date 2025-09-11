@@ -31,20 +31,12 @@ def _run_video_generation(app, task_id):
 
         try:
             # Model specific checks based on user feedback
-            # User feedback: "veo-3.0-generate-preview dosen't support lart frame image and 9:16 ratio"
-            # Assuming "lart frame" means "last frame"
-            TARGET_MODEL_FOR_CHECKS = "veo-3.0-generate-001" # Or the correct model name if this is a typo
-
-            if task.model == TARGET_MODEL_FOR_CHECKS:
+            # Both veo-3.0-generate-001 and veo-3.0-fast-generate-001 now support 9:16 aspect ratio
+            # Only last frame image is still not supported for veo-3.0 models
+            if task.model.startswith('veo-3.0'):
                 if task.last_frame_filename:
                     task.status = "failed"
-                    task.error_message = f"Model {TARGET_MODEL_FOR_CHECKS} does not support last frame images."
-                    db.session.commit()
-                    print(f"Task {task_id} failed: {task.error_message}")
-                    return
-                if task.aspect_ratio == "9:16":
-                    task.status = "failed"
-                    task.error_message = f"Model {TARGET_MODEL_FOR_CHECKS} does not support 9:16 aspect ratio."
+                    task.error_message = f"Model {task.model} does not support last frame images."
                     db.session.commit()
                     print(f"Task {task_id} failed: {task.error_message}")
                     return
