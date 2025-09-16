@@ -25,7 +25,7 @@ def generate_video_route():
     model = request.form.get('model', DEFAULT_VIDEO_MODEL)
     aspect_ratio = request.form.get('ratio', '16:9')
     camera_control = request.form.get('camera_control', 'FIXED') # Get camera_control
-    duration_seconds = int(request.form.get('duration', 5))
+    duration_seconds = int(request.form.get('durationSeconds', 8))
     resolution = request.form.get('resolution', None)
     gcs_output_bucket = request.form.get('gcs_output_bucket', None)
     generate_audio = request.form.get('generateAudio', 'false').lower() == 'true'
@@ -52,6 +52,41 @@ def generate_video_route():
         last_frame_filename_to_save = last_frame_img_filename
         print(f"Saved uploaded last frame image to: {last_frame_image_path}")
 
+    # Handle reference images for veo-2.0-generate-exp
+    reference_images_data = None
+    if model == 'veo-2.0-generate-exp' and aspect_ratio == '16:9':
+        reference_images_list = []
+        reference_type = request.form.get('reference_type', 'asset')  # Default to 'asset'
+        
+        # Determine max images based on type: asset=3, style=1
+        max_images = 3 if reference_type == 'asset' else 1
+        
+        # Handle multiple reference image files
+        for i in range(max_images):
+            ref_file_key = f'reference_image_{i}'
+            ref_file = request.files.get(ref_file_key)
+            if ref_file and allowed_file(ref_file.filename):
+                original_extension_ref = os.path.splitext(ref_file.filename)[1]
+                ref_img_filename = secure_filename(f"{uuid.uuid4()}_ref_{i}{original_extension_ref}")
+                ref_image_path = os.path.join(uploads_dir, ref_img_filename)
+                ref_file.save(ref_image_path)
+                
+                reference_images_list.append({
+                    'filename': ref_img_filename,
+                    'type': reference_type  # Use the same type for all images in this request
+                })
+                print(f"Saved uploaded reference image {i} to: {ref_image_path}")
+        
+        # Validate image count based on type
+        if reference_images_list:
+            if reference_type == 'style' and len(reference_images_list) > 1:
+                return jsonify({"error": "Style type supports maximum 1 reference image"}), 400
+            elif reference_type == 'asset' and len(reference_images_list) > 3:
+                return jsonify({"error": "Asset type supports maximum 3 reference images"}), 400
+            
+            import json
+            reference_images_data = json.dumps(reference_images_list)
+
     new_task = VideoGenerationTask(
         prompt=prompt_text,
         model=model,
@@ -62,6 +97,7 @@ def generate_video_route():
         gcs_output_bucket=gcs_output_bucket,
         image_filename=image_filename_to_save,
         last_frame_filename=last_frame_filename_to_save,
+        reference_images_data=reference_images_data,
         user=user_email,
         generate_audio=generate_audio
     )

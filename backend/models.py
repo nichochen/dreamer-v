@@ -23,6 +23,7 @@ class VideoGenerationTask(db.Model):
     last_frame_filename = db.Column(db.String(255), nullable=True) # Filename of the uploaded last frame image
     last_frame_gcs_uri = db.Column(db.String(1024), nullable=True) # GCS URI of the uploaded last frame image
     video_uri = db.Column(db.String(1024), nullable=True) # User-added: new video_uri attribute
+    reference_images_data = db.Column(db.Text, nullable=True) # JSON string for reference images data
     error_message = db.Column(db.String(1024), nullable=True)
     user = db.Column(db.String(255), nullable=True) # New field for user email
     generate_audio = db.Column(db.Boolean, default=False)

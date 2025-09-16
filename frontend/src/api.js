@@ -231,6 +231,8 @@ export const handleGenerateClick = async ({
   selectedLastImage,
   generateAudio,
   resolution,
+  referenceImages,
+  referenceType,
   setIsLoading,
   setErrorMessage,
   setVideoGcsUri,
@@ -262,7 +264,7 @@ export const handleGenerateClick = async ({
     payload.append('model', model);
     payload.append('ratio', ratio);
     payload.append('camera_control', cameraControl);
-    payload.append('duration', parseInt(duration, 10));
+    payload.append('durationSeconds', parseInt(duration, 10));
     if (gcsOutputBucket.trim()) {
       payload.append('gcs_output_bucket', gcsOutputBucket.trim());
     }
@@ -275,6 +277,16 @@ export const handleGenerateClick = async ({
     payload.append('generateAudio', generateAudio);
     if (resolution) {
       payload.append('resolution', resolution);
+    }
+
+    // Handle reference images for veo-2.0-generate-exp
+    if (model === 'veo-2.0-generate-exp' && ratio === '16:9' && referenceImages && referenceImages.length > 0) {
+      payload.append('reference_type', referenceType);
+      referenceImages.forEach((refImg, index) => {
+        if (refImg.file) {
+          payload.append(`reference_image_${index}`, refImg.file);
+        }
+      });
     }
 
     const response = await fetch(`${BACKEND_URL}/generate-video`, {
@@ -386,7 +398,7 @@ export const pollTaskStatus = async ({
       setModel(data.model || 'veo-3.0-generate-001');
       setRatio(data.aspect_ratio || '16:9');
       setCameraControl(data.camera_control || 'FIXED');
-      setDuration(data.duration_seconds || 5);
+      setDuration(data.duration_seconds || 8);
       setResolution(data.resolution || '');
       setGcsOutputBucket(data.gcs_output_bucket || '');
     }
@@ -455,7 +467,7 @@ export const handleDeleteTask = async ({
       setModel('veo-3.0-generate-001');
       setRatio('16:9');
       setCameraControl('FIXED');
-      setDuration(5);
+      setDuration(8);
       setGcsOutputBucket('');
       setTaskId(null);
       setTaskStatus('');
