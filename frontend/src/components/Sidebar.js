@@ -31,6 +31,13 @@ function Sidebar({
   onLastImageChange,
   onGenerateLastFrameImage, // New prop
   isGeneratingLastFrame, // New prop
+  // Reference Props for veo-2.0-generate-exp
+  referenceImages,
+  referenceType,
+  onReferenceTypeChange,
+  referenceFileInputRef,
+  onReferenceImageChange,
+  onRemoveReferenceImage,
   ratio,
   onRatioChange,
   cameraControl,
@@ -127,6 +134,17 @@ function Sidebar({
                     <i className="bi bi-image-alt me-1"></i> {t('lastFrameTab')}
                   </button>
                 </li>
+                {model === 'veo-2.0-generate-exp' && ratio === '16:9' && !imagePreview && !lastImagePreview && (
+                  <li className="nav-item">
+                    <button
+                      className={`nav-link ${activeImageTab === 'reference' ? 'active' : ''} ${theme === 'dark' && activeImageTab !== 'reference' ? 'text-light' : ''}`}
+                      onClick={() => onActiveImageTabChange('reference')}
+                      type="button"
+                    >
+                      <i className="bi bi-images me-1"></i> {t('referenceTab')}
+                    </button>
+                  </li>
+                )}
               </ul>
 
               <div className="tab-content">
@@ -276,6 +294,177 @@ function Sidebar({
                     </p>
                   )}
                 </div>
+
+                {model === 'veo-2.0-generate-exp' && (
+                  <div className={`tab-pane fade ${activeImageTab === 'reference' ? 'show active' : ''}`} id="referenceTabContent">
+                    {ratio !== '16:9' && (
+                      <div className={`alert alert-warning ${theme === 'dark' ? 'alert-warning-dark' : ''}`} role="alert">
+                        <small><i className="bi bi-exclamation-triangle me-2"></i>{t('referenceImagesOnly16x9')}</small>
+                      </div>
+                    )}
+                    <div className="mb-3">
+                      <label className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}>
+                        <i className="bi bi-tag me-2"></i>{t('referenceTypeLabel')}
+                      </label>
+                      <select
+                        className="form-select mb-3"
+                        value={referenceType}
+                        onChange={(e) => onReferenceTypeChange(e.target.value)}
+                        disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
+                      >
+                        <option value="asset">{t('referenceTypeAsset')}</option>
+                        <option value="style">{t('referenceTypeStyle')}</option>
+                      </select>
+                    </div>
+
+                    <div className="mb-3">
+                      <div 
+                        className="d-flex gap-2 p-3 border rounded"
+                        style={{ 
+                          minHeight: '120px',
+                          alignItems: 'flex-start',
+                          flexWrap: 'wrap'
+                        }}
+                      >
+                        {referenceImages.map((refImg, index) => (
+                          <div 
+                            key={refImg.id} 
+                            className="position-relative" 
+                            style={{ 
+                              width: '80px',
+                              height: '80px',
+                              flex: '0 0 auto'
+                            }}
+                          >
+                            <div 
+                              className="border rounded position-relative"
+                              style={{ 
+                                width: '80px',
+                                height: '80px',
+                                overflow: 'hidden'
+                              }}
+                              onMouseEnter={(e) => {
+                                const deleteBtn = e.currentTarget.querySelector('.delete-btn');
+                                if (deleteBtn) deleteBtn.style.opacity = '1';
+                              }}
+                              onMouseLeave={(e) => {
+                                const deleteBtn = e.currentTarget.querySelector('.delete-btn');
+                                if (deleteBtn) deleteBtn.style.opacity = '0';
+                              }}
+                            >
+                              <img 
+                                src={refImg.preview} 
+                                alt={t('referenceImagePreviewAlt')} 
+                                className="w-100 h-100" 
+                                style={{ 
+                                  objectFit: 'cover',
+                                  cursor: 'pointer'
+                                }} 
+                                onClick={() => onImagePreviewClick(refImg.preview)} 
+                              />
+                              <button
+                                type="button"
+                                className="delete-btn position-absolute top-0 end-0 btn btn-sm"
+                                onClick={() => onRemoveReferenceImage(refImg.id)}
+                                title={t('removeReferenceImageButton')}
+                                style={{
+                                  opacity: '0',
+                                  transition: 'opacity 0.2s ease',
+                                  background: 'rgba(0, 0, 0, 0.7)',
+                                  border: 'none',
+                                  color: 'white',
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '0 0.375rem 0 0.375rem',
+                                  padding: '0',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '11px'
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {/* 空白占位区域，当图片数量不足时显示 */}
+                        {referenceImages.length === 0 && (
+                          <div className="d-flex flex-column justify-content-center align-items-center w-100">
+                            <button
+                              className={`btn btn-link ${theme === 'dark' ? 'text-light' : 'text-primary'} p-2`}
+                              onClick={() => referenceFileInputRef.current && referenceFileInputRef.current.click()}
+                              title={t('uploadReferenceImageButtonTitle')}
+                              style={{ fontSize: '1.5rem' }}
+                              disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
+                            >
+                              <i className="bi bi-upload"></i>
+                            </button>
+                            <small className={`mt-2 ${theme === 'dark' ? 'text-light' : 'text-muted'}`}>
+                              {referenceType === 'asset' 
+                                ? `${t('addReferenceImageButton')} (0/3)`
+                                : `${t('addReferenceImageButton')} (0/1)`
+                              }
+                            </small>
+                          </div>
+                        )}
+                        
+                        {/* 当有图片但未达到最大数量时，显示添加按钮 */}
+                        {referenceImages.length > 0 && ((referenceType === 'asset' && referenceImages.length < 3) || (referenceType === 'style' && referenceImages.length < 1)) && (
+                          <div 
+                            className="d-flex flex-column justify-content-center align-items-center border rounded border-2 border-dashed"
+                            style={{ 
+                              width: '80px',
+                              height: '80px',
+                              flex: '0 0 auto'
+                            }}
+                          >
+                            <button
+                              className={`btn btn-link ${theme === 'dark' ? 'text-light' : 'text-primary'} p-1`}
+                              onClick={() => referenceFileInputRef.current && referenceFileInputRef.current.click()}
+                              title={t('uploadReferenceImageButtonTitle')}
+                              style={{ fontSize: '1.2rem' }}
+                              disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
+                            >
+                              <i className="bi bi-plus"></i>
+                            </button>
+                            <small className={`${theme === 'dark' ? 'text-light' : 'text-muted'}`} style={{ fontSize: '0.7rem' }}>
+                              {referenceType === 'asset' 
+                                ? `${referenceImages.length}/3`
+                                : `${referenceImages.length}/1`
+                              }
+                            </small>
+                          </div>
+                        )}
+                      </div>
+
+                      {((referenceType === 'asset' && referenceImages.length >= 3) || (referenceType === 'style' && referenceImages.length >= 1)) && (
+                        <div className={`alert alert-info ${theme === 'dark' ? 'alert-info-dark' : ''}`} role="alert">
+                          <small>
+                            {referenceType === 'asset' 
+                              ? t('maxAssetImagesReached')
+                              : t('maxStyleImagesReached')
+                            }
+                          </small>
+                        </div>
+                      )}
+
+                      <input
+                        ref={referenceFileInputRef}
+                        type="file"
+                        className="form-control"
+                        id="referenceImageUploadSidebar"
+                        accept="image/*"
+                        onChange={onReferenceImageChange}
+                        disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame || 
+                          (referenceType === 'asset' && referenceImages.length >= 3) || 
+                          (referenceType === 'style' && referenceImages.length >= 1)}
+                        style={{ display: 'none' }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -306,13 +495,8 @@ function Sidebar({
                   disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
                 >
                   <option value="16:9">{t('aspectRatio16x9')}</option>
-                  <option value="9:16" disabled={model.startsWith('veo-3.0')}>{t('aspectRatio9x16')}{model.startsWith('veo-3.0') ? t('notSupportedSuffix') : ''}</option>
+                  <option value="9:16">{t('aspectRatio9x16')}</option>
                 </select>
-                {model.startsWith('veo-3.0') && ratio === '9:16' && (
-                  <p className="form-text text-warning small">
-                    {t('aspectRatio9x16Warning')}
-                  </p>
-                )}
               </div>
               <div className="w-50">
                 <label htmlFor="cameraControlSelectSidebar" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-camera-video me-2"></i>{t('cameraControlLabel')}</label>
@@ -349,8 +533,17 @@ function Sidebar({
                   onChange={(e) => onDurationChange(parseInt(e.target.value, 10))}
                   disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
                 >
-                  {(model.startsWith('veo-3.0') || model === 'veo-2.0-generate-exp')
-                    ? <option value={8}>8s</option>
+                  {model.startsWith('veo-3.0')
+                    ? [4, 6, 8].map((d) => (
+                      <option key={d} value={d}>{d}s</option>
+                    ))
+                    : model === 'veo-2.0-generate-exp'
+                    ? (referenceImages.length > 0
+                      ? <option value={8}>8s</option>
+                      : [5, 6, 7, 8].map((d) => (
+                        <option key={d} value={d}>{d}s</option>
+                      ))
+                    )
                     : [5, 6, 7, 8].map((d) => (
                       <option key={d} value={d}>{d}s</option>
                     ))

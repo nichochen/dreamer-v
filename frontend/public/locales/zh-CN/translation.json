@@ -141,5 +141,21 @@
   "videoEditingUnderDevelopmentNoticeTitle": "视频编辑功能 - 开发中",
   "videoEditingUnderDevelopmentNoticeBody": "视频编辑（织梦）模式目前正在积极开发中。您可能会遇到性能问题或错误。",
   "videoEditingUnderDevelopmentNoticeSuggestion": "此功能占用大量CPU资源。如果运行非常缓慢，请考虑升级您的服务器配置。",
-  "page": "页"
+  "page": "页",
+  "referenceTab": "参考图",
+  "referenceLabel": "参考图像",
+  "referenceTypeLabel": "类型",
+  "referenceTypeAsset": "资产",
+  "referenceTypeStyle": "风格",
+  "addReferenceImageButton": "添加参考图",
+  "removeReferenceImageButton": "移除",
+  "referenceImagePreviewAlt": "参考图像预览",
+  "referenceNotSupportedMessage": "此模型不支持参考图像功能。",
+  "maxReferenceImagesReached": "最多只能添加 {{max}} 张参考图像。",
+  "maxAssetImagesReached": "资产类型最多只能添加 3 张参考图像",
+  "maxStyleImagesReached": "风格类型最多只能添加 1 张参考图像",
+  "referenceImagesOnly16x9": "参考图功能仅支持16:9比例，且不支持9:16分辨率",
+  "uploadReferenceImageButtonTitle": "上传参考图像",
+  "pasteReferenceImageFromClipboardButtonTitle": "从剪贴板粘贴参考图像",
+  "clearReferenceImageButtonTitle": "清除参考图像"
 }

@@ -156,6 +156,9 @@ def setup_database():
         # The model uses db.Boolean, so SQLAlchemy handles the abstraction.
         # When adding manually, 'BOOLEAN' should be acceptable for both via SQLAlchemy's engine.
         migrate_schema_add_column(engine, 'video_generation_task', 'generate_audio', 'BOOLEAN')
+        
+        # Add reference_images_data column for storing reference images JSON data
+        migrate_schema_add_column(engine, 'video_generation_task', 'reference_images_data', 'TEXT')
 
         # Backfill data
         migrate_data_backfill_user_column(engine)
