@@ -31,20 +31,12 @@ def _run_video_generation(app, task_id):
 
         try:
             # Model specific checks based on user feedback
-            # User feedback: "veo-3.0-generate-preview dosen't support lart frame image and 9:16 ratio"
-            # Assuming "lart frame" means "last frame"
-            TARGET_MODEL_FOR_CHECKS = "veo-3.0-generate-001" # Or the correct model name if this is a typo
-
-            if task.model == TARGET_MODEL_FOR_CHECKS:
+            # Both veo-3.0-generate-001 and veo-3.0-fast-generate-001 now support 9:16 aspect ratio
+            # Only last frame image is still not supported for veo-3.0 models
+            if task.model.startswith('veo-3.0'):
                 if task.last_frame_filename:
                     task.status = "failed"
-                    task.error_message = f"Model {TARGET_MODEL_FOR_CHECKS} does not support last frame images."
-                    db.session.commit()
-                    print(f"Task {task_id} failed: {task.error_message}")
-                    return
-                if task.aspect_ratio == "9:16":
-                    task.status = "failed"
-                    task.error_message = f"Model {TARGET_MODEL_FOR_CHECKS} does not support 9:16 aspect ratio."
+                    task.error_message = f"Model {task.model} does not support last frame images."
                     db.session.commit()
                     print(f"Task {task_id} failed: {task.error_message}")
                     return
@@ -154,6 +146,48 @@ def _run_video_generation(app, task_id):
                 else:
                     print(f"Last frame image file {task.last_frame_filename} not found for task {task_id}")
 
+            # Process reference images for veo-2.0-generate-exp
+            reference_images_for_api = None
+            if task.model == "veo-2.0-generate-exp" and hasattr(task, 'reference_images_data') and task.reference_images_data:
+                reference_images_for_api = []
+                try:
+                    import json
+                    reference_images_list = json.loads(task.reference_images_data) if isinstance(task.reference_images_data, str) else task.reference_images_data
+                    
+                    for ref_img in reference_images_list:
+                        if 'filename' in ref_img and 'type' in ref_img:
+                            ref_img_path = os.path.join(uploads_dir, ref_img['filename'])
+                            if os.path.exists(ref_img_path):
+                                # Upload reference image to GCS
+                                if DEFAULT_OUTPUT_GCS_BUCKET:
+                                    storage_client_ref = storage.Client()
+                                    ref_bucket_name = DEFAULT_OUTPUT_GCS_BUCKET.replace("gs://", "")
+                                    bucket_ref = storage_client_ref.bucket(ref_bucket_name)
+                                    base_ref_filename = os.path.basename(ref_img['filename'])
+                                    ref_blob_name = f"reference_images/{task.id}/{base_ref_filename}"
+                                    blob_ref = bucket_ref.blob(ref_blob_name)
+                                    
+                                    # Determine MIME type
+                                    ref_mime_type = "image/jpeg"
+                                    filename_lower = ref_img['filename'].lower()
+                                    if filename_lower.endswith(".png"):
+                                        ref_mime_type = "image/png"
+                                    elif filename_lower.endswith(".gif"):
+                                        ref_mime_type = "image/gif"
+                                    
+                                    blob_ref.upload_from_filename(ref_img_path, content_type=ref_mime_type)
+                                    ref_gcs_uri = f"gs://{ref_bucket_name}/{ref_blob_name}"
+                                    
+                                    # Add to API format
+                                    reference_images_for_api.append({
+                                        "image": {"gcsUri": ref_gcs_uri, "mimeType": ref_mime_type},
+                                        "referenceType": ref_img['type']  # "asset" or "style"
+                                    })
+                                    print(f"Successfully uploaded reference image {ref_img['filename']} to {ref_gcs_uri}")
+                except Exception as e_ref:
+                    print(f"Error processing reference images for task {task_id}: {e_ref}")
+                    # Continue without reference images if there's an error
+
             # Call GoogleVeo to generate video
             # Note: model_to_use (task.model or DEFAULT_VIDEO_MODEL) is not used here as GoogleVeo class has a hardcoded model.
             # This might be a point of future enhancement if model selection is needed with GoogleVeo.
@@ -167,7 +201,8 @@ def _run_video_generation(app, task_id):
                 last_frame_mime_type=current_last_frame_mime_type,
                 camera_control=task.camera_control, # Pass camera_control directly
                 generate_audio=task.generate_audio,
-                resolution=task.resolution
+                resolution=task.resolution,
+                reference_images=reference_images_for_api
             )
 
             # Process the result from GoogleVeo

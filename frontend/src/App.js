@@ -41,7 +41,7 @@ function App() {
   const [model, setModel] = useState('veo-3.0-generate-001'); // Default model
   const [ratio, setRatio] = useState('16:9'); // Default ratio
   const [cameraControl, setCameraControl] = useState(''); // Default camera control
-  const [duration, setDuration] = useState(5); // Default duration in seconds, changed to 5
+  const [duration, setDuration] = useState(8); // Default duration in seconds, changed to 8 for better compatibility
   const [resolution, setResolution] = useState('720p'); // Default resolution
   const [gcsOutputBucket, setGcsOutputBucket] = useState(''); // GCS output bucket
   const [generateAudio, setGenerateAudio] = useState(false);
@@ -91,6 +91,10 @@ function App() {
   const [isGeneratingLastFrame, setIsGeneratingLastFrame] = useState(false); // New state for last frame generation
   const [generatedLastFrameImageUrl, setGeneratedLastFrameImageUrl] = useState(''); // To store the URL from backend for last frame
   const [lastFrameImageGenerationError, setLastFrameImageGenerationError] = useState(''); // Error specific to last frame
+
+  // Reference images state for veo-2.0-generate-exp
+  const [referenceImages, setReferenceImages] = useState([]); // Array of {id, file, preview, type}
+  const [referenceType, setReferenceType] = useState('asset'); // 'asset' or 'style'
 
   const handleClearMusicSelection = () => {
     setSelectedMusicFile(null);
@@ -206,6 +210,7 @@ function App() {
   const fileInputRef = useRef(null); // Ref for the file input element
   const lastImagePreviewRef = useRef(null); // New ref for last image preview
   const lastFileInputRef = useRef(null); // New ref for last image file input
+  const referenceFileInputRef = useRef(null); // New ref for reference image file input
   const userDropdownRef = useRef(null); // Ref for user dropdown
 
   // Function to ensure track playback is stopped
@@ -267,11 +272,27 @@ function App() {
     if (model !== 'veo-2.0-generate-exp') {
       setCameraControl(''); // Reset to default if model does not support camera control
     }
-    if (model === 'veo-3.0-generate-001' || model === 'veo-2.0-generate-exp') {
-      if (duration !== 8) {
-        setDuration(8);
+    if (model === 'veo-2.0-generate-exp') {
+      // veo-2.0-generate-exp supports 5,6,7,8s, but when using Reference, only 8s is supported
+      const isUsingReference = referenceImages.length > 0;
+      if (isUsingReference) {
+        // When using Reference, only 8s is supported
+        if (duration !== 8) {
+          setDuration(8);
+        }
+      } else {
+        // When not using Reference, 5,6,7,8s are supported
+        if (![5, 6, 7, 8].includes(duration)) {
+          setDuration(8); // Default to 8s for veo-2.0-generate-exp
+        }
+      }
+    } else if (model.startsWith('veo-3.0')) {
+      // veo-3.0 models support 4s, 6s, 8s
+      if (![4, 6, 8].includes(duration)) {
+        setDuration(8); // Default to 8s for veo-3.0 models
       }
     } else {
+      // veo-2.0-generate-001 supports 5s, 6s, 7s, 8s
       if (![5, 6, 7, 8].includes(duration)) {
         setDuration(5);
       }
@@ -290,15 +311,29 @@ function App() {
         setActiveImageTab('first');
       }
 
-      // Limitation: No 9:16 aspect ratio
-      if (ratio === '9:16') {
-        setRatio('16:9'); // Default to 16:9
-      }
+      // Note: 9:16 aspect ratio is now supported for veo-3.0 models
     } else {
       setResolution('720p');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model, duration, selectedLastImage, ratio, activeImageTab, setCameraControl, setDuration, setRatio, setActiveImageTab]); // Added setters to dependency array as per exhaustive-deps, clearLastImagePreview is defined in scope
+  }, [model, selectedLastImage, ratio, activeImageTab, referenceImages.length]); // Removed duration from dependencies to prevent infinite loops
+
+  // Effect to clear reference images when first/last frame images are uploaded or 9:16 ratio is selected
+  useEffect(() => {
+    const shouldClearReference = 
+      (imagePreview || lastImagePreview) || // Has first or last frame image
+      ratio === '9:16'; // Or using 9:16 ratio
+
+    if (shouldClearReference && referenceImages.length > 0) {
+      // Clear all reference images
+      setReferenceImages([]);
+      
+      // If currently on reference tab, switch to first frame tab
+      if (activeImageTab === 'reference') {
+        setActiveImageTab('first');
+      }
+    }
+  }, [imagePreview, lastImagePreview, ratio, referenceImages.length, activeImageTab]);
 
   // Effect to stop track playback if view changes from 'create' while playing
   const prevActiveViewRef = useRef();
@@ -623,8 +658,62 @@ function App() {
   const doHandleLastImageChange = (e) => Handlers.handleLastImageChange(e, setSelectedLastImage, setLastImagePreview, lastFileInputRef);
   const doClearLastImagePreview = () => Handlers.clearLastImagePreview(setSelectedLastImage, setLastImagePreview, lastFileInputRef);
 
+  // Reference image handlers
+  const handleReferenceImageChange = (e) => {
+    const file = e.target.files[0];
+    const maxImages = referenceType === 'asset' ? 3 : 1;
+    
+    if (file && referenceImages.length < maxImages) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const newReferenceImage = {
+          id: Date.now() + Math.random(), // Simple unique ID
+          file: file,
+          preview: reader.result,
+          type: referenceType
+        };
+        setReferenceImages(prev => [...prev, newReferenceImage]);
+      };
+      reader.readAsDataURL(file);
+    }
+    // Clear the input
+    if (referenceFileInputRef.current) {
+      referenceFileInputRef.current.value = '';
+    }
+  };
+
+  // Handle reference type change with automatic cleanup
+  const handleReferenceTypeChange = (newType) => {
+    setReferenceType(newType);
+    
+    // If switching to style type and there are more than 1 image, keep only the first one
+    if (newType === 'style' && referenceImages.length > 1) {
+      setReferenceImages(prev => [prev[0]]);
+    }
+    
+    // Update the type of existing images
+    setReferenceImages(prev => prev.map(img => ({ ...img, type: newType })));
+  };
+
+  const handleRemoveReferenceImage = (id) => {
+    setReferenceImages(prev => prev.filter(img => img.id !== id));
+  };
+
+  // Enhanced paste handler - reference images do not support clipboard paste
+  const doHandlePasteFromClipboardEnhanced = (target) => {
+    if (target === 'reference') {
+      // Reference images do not support clipboard paste
+      console.log('Clipboard paste is not supported for reference images');
+      return;
+    } else {
+      // Use original handler for first and last frame
+      Handlers.handlePasteFromClipboard(target, setSelectedImage, setImagePreview, setSelectedLastImage, setLastImagePreview, setErrorMessage, t);
+    }
+  };
+
   const doHandleGenerateClick = () => Api.handleGenerateClick({
     prompt, model, ratio, cameraControl, duration, gcsOutputBucket, selectedImage, selectedLastImage, generateAudio, resolution,
+    referenceImages, referenceType,
     setIsLoading, setErrorMessage, setVideoGcsUri, setTaskStatus, setCompletedUriPollRetries,
     pollingIntervalId, setPollingIntervalId, setTaskId, getTasks: memoizedFetchHistoryTasks, t,
   });
@@ -800,7 +889,7 @@ function App() {
               onClearImagePreview={doClearImagePreview}
               fileInputRef={fileInputRef}
               onImageChange={doHandleImageChange}
-              onPasteFromClipboard={doHandlePasteFromClipboard}
+              onPasteFromClipboard={doHandlePasteFromClipboardEnhanced}
               onGenerateFirstFrameImage={handleGenerateFirstFrameImage}
               isGeneratingFirstFrame={isGeneratingFirstFrame}
               lastImagePreviewRef={lastImagePreviewRef}
@@ -810,6 +899,13 @@ function App() {
               onLastImageChange={doHandleLastImageChange}
               onGenerateLastFrameImage={handleGenerateLastFrameImage}
               isGeneratingLastFrame={isGeneratingLastFrame}
+              // Reference Props for veo-2.0-generate-exp
+              referenceImages={referenceImages}
+              referenceType={referenceType}
+              onReferenceTypeChange={handleReferenceTypeChange}
+              referenceFileInputRef={referenceFileInputRef}
+              onReferenceImageChange={handleReferenceImageChange}
+              onRemoveReferenceImage={handleRemoveReferenceImage}
               ratio={ratio}
               onRatioChange={setRatio}
               cameraControl={cameraControl}

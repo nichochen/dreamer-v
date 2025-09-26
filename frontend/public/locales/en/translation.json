@@ -142,5 +142,21 @@
   "videoEditingUnderDevelopmentNoticeTitle": "Video Editing Feature - Under Development",
   "videoEditingUnderDevelopmentNoticeBody": "The video editing (Weave) mode is currently under active development. You may experience performance issues or encounter bugs.",
   "videoEditingUnderDevelopmentNoticeSuggestion": "This feature is CPU intensive. If you find it very slow, please consider upscaling your server resources.",
-  "page": "Page"
+  "page": "Page",
+  "referenceTab": "Reference",
+  "referenceLabel": "Reference Images",
+  "referenceTypeLabel": "Type",
+  "referenceTypeAsset": "Asset",
+  "referenceTypeStyle": "Style",
+  "addReferenceImageButton": "Add Reference",
+  "removeReferenceImageButton": "Remove",
+  "referenceImagePreviewAlt": "Reference image preview",
+  "referenceNotSupportedMessage": "Reference images are not supported by this model.",
+  "maxReferenceImagesReached": "Maximum {{max}} reference images allowed.",
+  "maxAssetImagesReached": "Asset type supports maximum 3 reference images",
+  "maxStyleImagesReached": "Style type supports maximum 1 reference image",
+  "referenceImagesOnly16x9": "Reference images only support 16:9 ratio and do not support 9:16 resolution",
+  "uploadReferenceImageButtonTitle": "Upload reference image",
+  "pasteReferenceImageFromClipboardButtonTitle": "Paste reference image from clipboard",
+  "clearReferenceImageButtonTitle": "Clear reference image"
 }

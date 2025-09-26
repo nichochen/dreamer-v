@@ -35,4 +35,4 @@ app = create_app()
 if __name__ == '__main__':
     print(f"Starting Flask app with SQLite persistence.")
     print(f"Database will be stored at: {app.config['SQLALCHEMY_DATABASE_URI']}")
-    app.run(debug=False, host='0.0.0.0', port=5001)
+    app.run(debug=False, host='0.0.0.0', port=5000)
