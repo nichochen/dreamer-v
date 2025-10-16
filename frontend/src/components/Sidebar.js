@@ -288,6 +288,8 @@ function Sidebar({
                 onChange={(e) => onModelChange(e.target.value)}
                 disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
               >          
+                <option value="veo-3.1-generate-preview">veo-3.1-generate-preview</option>
+                <option value="veo-3.1-fast-generate-preview">veo-3.1-fast-generate-preview</option>
                 <option value="veo-3.0-generate-001">veo-3.0-generate-001</option>
                 <option value="veo-3.0-fast-generate-001">veo-3.0-fast-generate-001</option>
                 <option value="veo-2.0-generate-001">veo-2.0-generate-001</option>
@@ -344,7 +346,7 @@ function Sidebar({
                   onChange={(e) => onDurationChange(parseInt(e.target.value, 10))}
                   disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
                 >
-                  {model.startsWith('veo-3.0')
+                  {model.startsWith('veo-3.0') || model.startsWith('veo-3.1')
                     ? [4, 6, 8].map((d) => (
                       <option key={d} value={d}>{d}s</option>
                     ))
@@ -364,10 +366,10 @@ function Sidebar({
                   className="form-select"
                   value={resolution}
                   onChange={(e) => onResolutionChange(e.target.value)}
-                  disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame || !model.startsWith('veo-3.0')}
+                  disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame || !(model.startsWith('veo-3.0') || model.startsWith('veo-3.1'))}
                 >
-                  <option value="720p">720p</option>
                   <option value="1080p">1080p</option>
+                  <option value="720p">720p</option>            
                 </select>
               </div>
             </div>
@@ -380,7 +382,7 @@ function Sidebar({
                 id="generateAudioSwitch"
                 checked={generateAudio}
                 onChange={onGenerateAudioChange}
-                disabled={isLoading || isRefining || isGeneratingFirstFrame || isGeneratingLastFrame || !model.startsWith('veo-3.0')}
+                disabled={isLoading || isRefining || isGeneratingFirstFrame || isGeneratingLastFrame || !(model.startsWith('veo-3.0') || model.startsWith('veo-3.1'))}
               />
               <label className="form-check-label" htmlFor="generateAudioSwitch">
                 {t('generateAudioLabel')}

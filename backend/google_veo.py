@@ -43,19 +43,12 @@ class GoogleVeo:
         generate_audio: bool = False,
         resolution: Optional[str] = None,
     ):
-        if self.model_name.startswith("veo-3.0"):
+        if self.model_name.startswith("veo-3.0") or self.model_name.startswith("veo-3.1"):
             if "durationSeconds" in parameters and isinstance(parameters["durationSeconds"], (int, float)) and parameters["durationSeconds"] > 90:
                 raise ValueError(
                     f"For model '{self.model_name}', 'durationSeconds' cannot exceed 90. "
                     f"Received: {parameters['durationSeconds']}"
                 )
-            if resolution:
-                if resolution not in ["720p", "1080p"]:
-                    raise ValueError(
-                        f"For model '{self.model_name}', 'resolution' must be '720p' or '1080p'. "
-                        f"Received: {resolution}"
-                    )
-                parameters["resolution"] = resolution
 
         instance = {"prompt": prompt}
         if image_uri:
@@ -69,8 +62,12 @@ class GoogleVeo:
             instance["cameraControl"] = camera_control
 
         # Add generateAudio to parameters, respecting the default
-        if self.model_name.startswith("veo-3.0"):
+        if self.model_name.startswith("veo-3.0") or self.model_name.startswith("veo-3.1"):
             parameters["generateAudio"] = generate_audio
+            if resolution:
+                parameters["resolution"] = resolution
+        elif resolution:
+            parameters["resolution"] = resolution
         request_payload = {"instances": [instance], "parameters": parameters}
         return request_payload
 

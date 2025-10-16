@@ -42,9 +42,9 @@ function App() {
   const [ratio, setRatio] = useState('16:9'); // Default ratio
   const [cameraControl, setCameraControl] = useState(''); // Default camera control
   const [duration, setDuration] = useState(5); // Default duration in seconds, changed to 5
-  const [resolution, setResolution] = useState('720p'); // Default resolution
+  const [resolution, setResolution] = useState('1080p'); // Default resolution
   const [gcsOutputBucket, setGcsOutputBucket] = useState(''); // GCS output bucket
-  const [generateAudio, setGenerateAudio] = useState(false);
+  const [generateAudio, setGenerateAudio] = useState(true);
   const [theme, setTheme] = useState('dark'); // 'light' or 'dark' - Defaulted to dark
   const [videoHeight, setVideoHeight] = useState(600); // Default height in pixels (was 750)
   const [isResizing, setIsResizing] = useState(false);
@@ -267,7 +267,7 @@ function App() {
     if (model !== 'veo-2.0-generate-exp') {
       setCameraControl(''); // Reset to default if model does not support camera control
     }
-    if (model.startsWith('veo-3.0')) {
+    if (model.startsWith('veo-3')) {
       if (![4, 6, 8].includes(duration)) {
         setDuration(4);
       }
@@ -299,7 +299,9 @@ function App() {
       //   setRatio('16:9'); // Default to 16:9
       // }
     } else {
-      setResolution('720p');
+      if (model.startsWith('veo-2')) {
+        setResolution('720p');
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, duration, selectedLastImage, ratio, activeImageTab, setCameraControl, setDuration, setRatio, setActiveImageTab]); // Added setters to dependency array as per exhaustive-deps, clearLastImagePreview is defined in scope
