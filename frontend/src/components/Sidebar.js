@@ -306,13 +306,8 @@ function Sidebar({
                   disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
                 >
                   <option value="16:9">{t('aspectRatio16x9')}</option>
-                  <option value="9:16" disabled={model.startsWith('veo-3.0')}>{t('aspectRatio9x16')}{model.startsWith('veo-3.0') ? t('notSupportedSuffix') : ''}</option>
+                  <option value="9:16">{t('aspectRatio9x16')}</option>
                 </select>
-                {model.startsWith('veo-3.0') && ratio === '9:16' && (
-                  <p className="form-text text-warning small">
-                    {t('aspectRatio9x16Warning')}
-                  </p>
-                )}
               </div>
               <div className="w-50">
                 <label htmlFor="cameraControlSelectSidebar" className={`form-label ${theme === 'dark' ? 'text-light' : ''}`}><i className="bi bi-camera-video me-2"></i>{t('cameraControlLabel')}</label>
@@ -349,11 +344,16 @@ function Sidebar({
                   onChange={(e) => onDurationChange(parseInt(e.target.value, 10))}
                   disabled={isLoading || isGeneratingFirstFrame || isGeneratingLastFrame}
                 >
-                  {(model.startsWith('veo-3.0') || model === 'veo-2.0-generate-exp')
-                    ? <option value={8}>8s</option>
-                    : [5, 6, 7, 8].map((d) => (
+                  {model.startsWith('veo-3.0')
+                    ? [4, 6, 8].map((d) => (
                       <option key={d} value={d}>{d}s</option>
                     ))
+                    : (model === 'veo-2.0-generate-exp'
+                      ? <option value={8}>8s</option>
+                      : [5, 6, 7, 8].map((d) => (
+                        <option key={d} value={d}>{d}s</option>
+                      ))
+                    )
                   }
                 </select>
               </div>

@@ -267,7 +267,11 @@ function App() {
     if (model !== 'veo-2.0-generate-exp') {
       setCameraControl(''); // Reset to default if model does not support camera control
     }
-    if (model === 'veo-3.0-generate-001' || model === 'veo-2.0-generate-exp') {
+    if (model.startsWith('veo-3.0')) {
+      if (![4, 6, 8].includes(duration)) {
+        setDuration(4);
+      }
+    } else if (model === 'veo-2.0-generate-exp') {
       if (duration !== 8) {
         setDuration(8);
       }
@@ -291,9 +295,9 @@ function App() {
       }
 
       // Limitation: No 9:16 aspect ratio
-      if (ratio === '9:16') {
-        setRatio('16:9'); // Default to 16:9
-      }
+      // if (ratio === '9:16') {
+      //   setRatio('16:9'); // Default to 16:9
+      // }
     } else {
       setResolution('720p');
     }

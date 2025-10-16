@@ -41,13 +41,7 @@ def _run_video_generation(app, task_id):
                     task.error_message = f"Model {TARGET_MODEL_FOR_CHECKS} does not support last frame images."
                     db.session.commit()
                     print(f"Task {task_id} failed: {task.error_message}")
-                    return
-                if task.aspect_ratio == "9:16":
-                    task.status = "failed"
-                    task.error_message = f"Model {TARGET_MODEL_FOR_CHECKS} does not support 9:16 aspect ratio."
-                    db.session.commit()
-                    print(f"Task {task_id} failed: {task.error_message}")
-                    return
+                    return               
             print("@@", task)
             veo_client = GoogleVeo(project_id=PROJECT_ID, model_name=task.model) # Instantiate GoogleVeo with task's model
 
